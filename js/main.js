@@ -1,8 +1,8 @@
 import { computeHomography, applyH, FIELD_CORNERS } from './homography.js';
 import { Tracker, makeMatcher, sampleColor } from './vision.js';
 import { Game, ROD_U } from './game.js';
-import { Speaker } from './speech.js';
-import { Commentator } from './commentator.js';
+import { AudioEngine } from './audio.js';
+import { Director } from './commentator.js';
 
 const PROC_WIDTH = 320; // Verarbeitungsauflösung (Breite in Pixel)
 const BALL_CM = 3.5;
@@ -20,6 +20,14 @@ const DEFAULTS = {
   voice: true,
   autoGoals: true,
   swapped: false,
+  goalsToWin: 10,
+  expert: true,
+  crowd: 0.5,
+  tts: 'browser',
+  elevenKey: '',
+  elevenModel: 'eleven_flash_v2_5',
+  voiceReporter: '',
+  voiceExperte: '',
 };
 
 // ——— Persistenz (nur Komfort, die App läuft auch ohne) ———
@@ -51,7 +59,7 @@ const maskCanvas = document.createElement('canvas');
 const mctx = maskCanvas.getContext('2d');
 
 const tracker = new Tracker();
-const speaker = new Speaker();
+const audio = new AudioEngine();
 const game = new Game({ ...settings, goalMissSec: 0.5 });
 let step = 'camera'; // camera | corners | ball | teams | ready | live
 let pickTeam = null;
@@ -60,16 +68,24 @@ let lastBall = null;
 let teamBlobs = [[], []];
 let fps = 0;
 let frameData = null;
+let gameOver = false;
 
-const commentator = new Commentator({
-  speaker,
+const director = new Director({
+  audio,
   getSettings: () => settings,
-  onText: (text, e) => showSubtitle(text, e.type === 'goal'),
+  onLine: (speaker, text, big) => showSubtitle(speaker, text, big),
   onStatus: (text, kind) => {
     $('ai-status').textContent = text;
     $('ai-status').dataset.kind = kind;
   },
+  onGameOver: () => {
+    gameOver = true;
+    game.pause();
+    renderPanel();
+  },
 });
+
+const commentCtx = () => ({ names: settings.names, snapshot: game.snapshot(), gameTime: game.elapsed });
 
 // ——— Kamera / Video ———
 async function startCamera() {
@@ -201,7 +217,7 @@ function loop() {
   const t = now / 1000;
   const events = game.update(t, lastBall, teamBlobs);
   if (events.length) onEvents(events);
-  commentator.tick(game.running, settings.names, game.snapshot());
+  director.tick(game.running, commentCtx());
 
   draw();
   updateScoreboard();
@@ -227,7 +243,7 @@ function chooseBall(blobs, exp) {
 
 function onEvents(events) {
   logEvents(events);
-  commentator.handle(events, settings.names, game.snapshot());
+  director.handle(events, commentCtx());
   if (events.some((e) => e.type === 'goal')) flashGoal();
 }
 
@@ -359,9 +375,10 @@ function updateScoreboard() {
 }
 
 let subTimer = null;
-function showSubtitle(text, big) {
+function showSubtitle(speaker, text, big) {
   const el = $('subtitle');
-  el.textContent = text;
+  el.innerHTML = `<small>${speaker === 'experte' ? 'Experte' : 'Reporter'}</small>${escapeHtml(text)}`;
+  el.dataset.speaker = speaker;
   el.classList.toggle('big', big);
   el.classList.add('show');
   clearTimeout(subTimer);
@@ -440,6 +457,7 @@ function renderPanel() {
         <button data-act="debug">${debug ? 'Maske aus' : 'Maske zeigen'}</button>
       </div>`,
     live: `
+      ${gameOver ? `<h2>Spiel vorbei: ${escapeHtml(n[game.score[0] > game.score[1] ? 0 : 1])} gewinnt ${game.score[0]}:${game.score[1]}</h2>` : ''}
       <div class="row">
         <button class="team0" data-act="goal" data-team="0">Tor ${escapeHtml(n[0])}</button>
         <button class="team1" data-act="goal" data-team="1">Tor ${escapeHtml(n[1])}</button>
@@ -447,7 +465,7 @@ function renderPanel() {
         <button data-act="undo" data-team="1">−1 ${escapeHtml(n[1])}</button>
       </div>
       <div class="row">
-        <button data-act="pause">${game.running ? 'Pause' : 'Weiter'}</button>
+        ${gameOver ? '<button class="primary" data-act="new-game">Neues Spiel</button>' : `<button data-act="pause">${game.running ? 'Pause' : 'Weiter'}</button>`}
         <button data-act="mute">${settings.voice ? 'Stumm' : 'Ton an'}</button>
         <button data-act="debug">${debug ? 'Maske aus' : 'Maske'}</button>
         <button data-act="new-game">Neues Spiel</button>
@@ -488,30 +506,40 @@ function act(name, el) {
       debug = !debug;
       return renderPanel();
     case 'kickoff':
-      speaker.unlock();
-      speaker.enabled = settings.voice;
-      onEvents(game.start(t));
-      return setStep('live');
+      return kickoff();
     case 'pause':
+      if (gameOver) return;
       onEvents(game.running ? game.pause() : game.start(t));
       return renderPanel();
     case 'goal': return onEvents([game.addGoal(team, t, { manual: true })]);
     case 'undo': return onEvents([game.removeGoal(team)]);
     case 'mute':
       settings.voice = !settings.voice;
-      speaker.enabled = settings.voice;
-      if (!settings.voice) speaker.cancel();
+      director.setMuted(!settings.voice);
       save('kicker.settings', settings);
       return renderPanel();
     case 'new-game':
       if (!confirm('Spielstand zurücksetzen?')) return;
       game.reset();
+      director.reset();
+      gameOver = false;
       eventLog.length = 0;
       return setStep('ready');
     case 'calibrate':
       if (game.running) game.pause();
       return setStep('ready');
   }
+}
+
+async function kickoff() {
+  // Audio muss aus dem Klick heraus freigeschaltet werden
+  await audio.start();
+  window.speechSynthesis?.speak(Object.assign(new SpeechSynthesisUtterance(' '), { volume: 0 }));
+  director.configure();
+  director.setMuted(!settings.voice);
+  director.warmUp(settings.names);
+  onEvents(game.start(performance.now() / 1000));
+  setStep('live');
 }
 
 // ——— Einstellungen ———
@@ -527,6 +555,14 @@ function openSettings() {
   f.fillerSec.value = settings.fillerSec;
   f.tol.value = settings.tol;
   f.autoGoals.checked = settings.autoGoals;
+  f.goalsToWin.value = settings.goalsToWin;
+  f.expert.checked = settings.expert;
+  f.crowd.value = settings.crowd;
+  f.tts.value = settings.tts;
+  f.elevenKey.value = settings.elevenKey;
+  f.elevenModel.value = settings.elevenModel;
+  f.voiceReporter.value = settings.voiceReporter;
+  f.voiceExperte.value = settings.voiceExperte;
   $('settings').showModal();
 }
 
@@ -541,8 +577,19 @@ function saveSettings() {
   settings.fillerSec = Number(f.fillerSec.value) || DEFAULTS.fillerSec;
   settings.tol = Number(f.tol.value);
   settings.autoGoals = f.autoGoals.checked;
+  settings.goalsToWin = Number(f.goalsToWin.value) || DEFAULTS.goalsToWin;
+  settings.expert = f.expert.checked;
+  settings.crowd = Number(f.crowd.value);
+  settings.tts = f.tts.value;
+  settings.elevenKey = f.elevenKey.value.trim();
+  settings.elevenModel = f.elevenModel.value.trim() || DEFAULTS.elevenModel;
+  settings.voiceReporter = f.voiceReporter.value.trim();
+  settings.voiceExperte = f.voiceExperte.value.trim();
   Object.assign(game.cfg, settings);
-  commentator.llmDisabledUntil = 0;
+  director.llmDisabledUntil = 0;
+  director.configure();
+  if (game.running) director.warmUp(settings.names);
+  if (audio.ctx && settings.voice) audio.setCrowd(settings.crowd);
   save('kicker.settings', settings);
   renderPanel();
 }
@@ -563,5 +610,5 @@ $('tol-live').addEventListener('input', (ev) => {
   save('kicker.settings', settings);
 });
 $('tol-live').value = settings.tol;
-commentator.onStatus(settings.apiKey ? 'KI bereit' : 'Offline-Vorlagen', settings.apiKey ? 'ok' : 'offline');
+director.onStatus(settings.apiKey ? 'KI bereit' : 'Offline-Vorlagen', settings.apiKey ? 'ok' : 'offline');
 renderPanel();

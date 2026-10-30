@@ -33,7 +33,7 @@
     <form id="settings-form" method="dialog">
       <h2>Einstellungen</h2>
       <label>Claude API-Key
-        <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-… (leer = Offline-Vorlagen)">
+        <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-… (leer = Kommentar mit Vorlagen)">
       </label>
       <p class="hint">Der Key wird nur auf diesem Gerät gespeichert und direkt an die Claude API gesendet.</p>
       <label>Modell
@@ -43,7 +43,33 @@
           <option value="claude-haiku-5-5">Claude Haiku 5.5 (schnellste Reaktion, günstig)</option>
         </select>
       </label>
+      <fieldset>
+        <legend>Stimmen</legend>
+        <label>Sprachausgabe
+          <select name="tts">
+            <option value="browser">Browser-Stimme (kostenlos, eher monoton)</option>
+            <option value="elevenlabs">ElevenLabs (natürlich und emotional)</option>
+          </select>
+        </label>
+        <label>ElevenLabs API-Key <input name="elevenKey" type="password" autocomplete="off" placeholder="nur für ElevenLabs nötig"></label>
+        <label>ElevenLabs-Modell
+          <input name="elevenModel" list="eleven-models" placeholder="eleven_flash_v2_5">
+          <datalist id="eleven-models">
+            <option value="eleven_flash_v2_5">schnellste Reaktion</option>
+            <option value="eleven_v3">ausdrucksstärker, etwas langsamer</option>
+          </datalist>
+        </label>
+        <div class="grid2">
+          <label>Voice-ID Reporter <input name="voiceReporter" autocomplete="off"></label>
+          <label>Voice-ID Experte <input name="voiceExperte" autocomplete="off"></label>
+        </div>
+        <p class="hint">Voice-IDs findest du in der ElevenLabs Voice Library (dort nach deutschen Sportkommentator-Stimmen suchen).</p>
+        <label class="check"><input name="expert" type="checkbox"> Experte kommentiert mit</label>
+        <label>Publikum <input name="crowd" type="range" min="0" max="1" step="0.05"></label>
+      </fieldset>
       <div class="grid2">
+        <label>Spiel bis (Tore) <input name="goalsToWin" type="number" min="1" max="30"></label>
+        <span></span>
         <label>Team links <input name="name0"></label>
         <label>Team rechts <input name="name1"></label>
         <label>Tischlänge (cm) <input name="tableLen" type="number" min="60" max="200"></label>

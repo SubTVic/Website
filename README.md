@@ -15,13 +15,36 @@ Kamera ──► Bildverarbeitung ──► Spiel-Logik ──► Claude ──�
 
 Das Sprachmodell schaut **nicht** direkt auf das Video, dafür ist der Ball viel zu schnell. Die Bildverarbeitung erkennt Ereignisse in Echtzeit und schickt Claude nur eine kurze Textbeschreibung („Schuss von Heim, 34 km/h, aufs Tor“). Daraus macht Claude einen Kommentatorensatz.
 
+### Kommentar wie im Fußball-Videospiel
+
+Fußballspiele wirken lebendig, weil der Kommentar ohne Verzögerung reagiert und trotzdem die Geschichte des Spiels erzählt. Die App kombiniert dafür mehrere Ebenen:
+
+1. **Sofort-Ausrufe** („Toooor!“, „Gehalten!“, „Jetzt wird es gefährlich!“): Sie werden vor dem Anpfiff erzeugt und kommen ohne Wartezeit (`js/lines.js`).
+2. **Publikum**: Ein synthetisches Stadion reagiert mit Spannung beim Schuss, einem „Oooh“ bei Paraden und Jubel bei Toren. Dazu kommen Anpfiff- und Schlusspfiff.
+3. **KI-Anschluss**: Während der Ausruf läuft, schreibt Claude schon den nächsten Satz, mit Spielstand und Story (Ausgleich, Führungswechsel, Aufholjagd, Serie, Matchball, Rekordschuss).
+4. **Zwei Stimmen**: Der Reporter macht das Play-by-Play, der Experte analysiert in ruhigen Phasen.
+5. **Regie mit Prioritäten**: Ein Tor unterbricht alles. Veraltete Sätze werden verworfen, statt zu spät zu kommen.
+
+### Stimmen
+
+| Option | Qualität | Reaktionszeit | Kosten |
+|---|---|---|---|
+| Browser-Stimme | eher monoton | sofort | kostenlos |
+| ElevenLabs `eleven_flash_v2_5` | natürlich, Deutsch gut | sehr schnell | Abo/Zeichen |
+| ElevenLabs `eleven_v3` | sehr emotional (versteht `[excited]`) | langsamer | Abo/Zeichen |
+
+Erzeugte Ausrufe werden im Browser zwischengespeichert, damit sie beim nächsten Spiel nichts mehr kosten. Für den Raspberry Pi kommt später eine lokale Stimme (z. B. Piper) infrage, die ohne Internet läuft.
+
 | Datei | Aufgabe |
 |---|---|
 | `js/homography.js` | Rechnet Kamerabild ↔ Spielfeld um (Perspektivkorrektur über die 4 Ecken) |
 | `js/vision.js` | Findet Ball und Team-Sticker über ihre Farbe |
 | `js/game.js` | Erkennt Tore, Schüsse, Paraden, Ballkontrolle; führt Spielstand und Statistik |
-| `js/commentator.js` | Kommentar mit Claude, ohne API-Key mit Satzvorlagen |
-| `js/speech.js` | Sprachausgabe des Browsers (deutsche Stimme) |
+| `js/narrative.js` | Story-Gedächtnis: Ausgleich, Führungswechsel, Serien, Matchball |
+| `js/commentator.js` | Regie: Sofort-Ausrufe, Claude-Anschluss, Sprechwarteschlange |
+| `js/lines.js` | Texte der Sofort-Ausrufe und Ersatz-Kommentare (gern anpassen) |
+| `js/tts.js` | Stimmen: Browser oder ElevenLabs |
+| `js/audio.js` | Stadion-Atmosphäre, Pfiffe, Audiowiedergabe |
 | `js/main.js` | Oberfläche, Kalibrierung, Hauptschleife |
 
 ## Starten
@@ -46,7 +69,7 @@ python3 -m http.server 8000
 4. Optional: **Team-Sticker.** Farbige Sticker auf die Figuren kleben und deren Farbe antippen.
 5. **Anpfiff!**
 
-Unter ⚙ trägst du den **Claude API-Key** ein (von [console.anthropic.com](https://console.anthropic.com)). Der Key wird nur auf deinem Gerät gespeichert. Ohne Key kommentiert die App mit Satzvorlagen.
+Unter ⚙ trägst du den **Claude API-Key** ein (von [console.anthropic.com](https://console.anthropic.com)). Ohne Key kommentiert die App mit Satzvorlagen. Für bessere Stimmen wählst du dort **ElevenLabs**, trägst den ElevenLabs-Key ein und je eine Voice-ID für Reporter und Experte. Die Voice-IDs findest du in der ElevenLabs Voice Library. Alle Keys werden nur auf deinem Gerät gespeichert.
 
 Tore werden automatisch erkannt, sobald der Ball an der Torlinie verschwindet. Falls die Erkennung danebenliegt, korrigierst du sie mit den Buttons **Tor Heim / Tor Gast / −1**.
 

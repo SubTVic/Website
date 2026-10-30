@@ -71,6 +71,8 @@ body:not(.has-video) .status { display: none; }
   opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
 }
 #subtitle.show { opacity: 1; transform: translate(-50%, 0); }
+#subtitle small { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+#subtitle[data-speaker="experte"] small { color: #7dd3fc; }
 #subtitle.big { font-size: 22px; font-weight: 700; color: var(--accent); }
 
 #goal-flash {
@@ -119,6 +121,11 @@ dialog {
 }
 dialog::backdrop { background: rgba(0,0,0,.6); }
 dialog h2 { margin-top: 0; }
+dialog fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px 4px; min-width: 0; }
+dialog input:not([type=checkbox]), dialog select { width: 100%; min-width: 0; }
+.grid2 > * { min-width: 0; }
+dialog legend { color: var(--muted); font-size: 13px; padding: 0 4px; }
+dialog form { max-height: 80dvh; overflow-y: auto; }
 dialog label { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
 dialog label.check { flex-direction: row; align-items: center; color: var(--text); }
 dialog input:not([type=checkbox]):not([type=range]), dialog select {
