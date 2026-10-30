@@ -459,6 +459,7 @@ function renderPanel() {
       <p>The yellow circle should follow the ball. If it doesn't, tap the ball again or adjust the tolerance.</p>
       <div class="row">
         <button class="primary big" data-act="kickoff">Kick off!</button>
+        <button data-act="soundcheck">Sound check</button>
         <button data-act="ball">Ball ${swatch(calib.ball)}</button>
         <button data-act="teams">Team stickers</button>
         <button data-act="corners">Corners</button>
@@ -476,6 +477,7 @@ function renderPanel() {
       <div class="row">
         ${gameOver ? '<button class="primary" data-act="new-game">New match</button>' : `<button data-act="pause">${game.running ? 'Pause' : 'Resume'}</button>`}
         <button data-act="mute">${settings.voice ? 'Mute' : 'Unmute'}</button>
+        <button data-act="soundcheck">Sound check</button>
         <button data-act="debug">${debug ? 'Hide mask' : 'Mask'}</button>
         ${gameOver ? '' : '<button data-act="new-game">New match</button>'}
         <button data-act="calibrate">Calibrate</button>
@@ -516,6 +518,8 @@ function act(name, el) {
       return renderPanel();
     case 'kickoff':
       return kickoff();
+    case 'soundcheck':
+      return soundCheck();
     case 'pause':
       if (gameOver) return;
       onEvents(game.running ? game.pause() : game.start(t));
@@ -540,11 +544,32 @@ function act(name, el) {
   }
 }
 
+// Has to run synchronously inside the click: browsers (iOS above all) only allow
+// sound that is started directly by a user gesture, not after an await.
+function unlockAudio() {
+  const started = audio.start();
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    window.speechSynthesis?.speak(u);
+  } catch {}
+  return started;
+}
+
+async function soundCheck() {
+  const started = unlockAudio();
+  settings.voice = true;
+  save(SETTINGS_KEY, settings);
+  await started;
+  director.configure();
+  director.setMuted(false);
+  director.soundCheck();
+}
+
 async function kickoff() {
-  // Audio has to be unlocked from the click itself
-  await audio.start();
+  const started = unlockAudio();
+  await started;
   await scriptReady;
-  window.speechSynthesis?.speak(Object.assign(new SpeechSynthesisUtterance(' '), { volume: 0 }));
   director.configure();
   director.setMuted(!settings.voice);
   director.warmUp(settings.names);

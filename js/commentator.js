@@ -161,6 +161,20 @@ export class Director {
     this.audio.setCrowd(muted ? 0 : this.getSettings().crowd);
   }
 
+  // Whistle, crowd and both voices, so the sound can be checked before kickoff
+  soundCheck() {
+    this.audio.whistle([0.4]);
+    this.audio.roar();
+    const t = now();
+    const lines = [
+      ['pbp', 'Sound check! This is your play-by-play commentator.'],
+      ['color', 'And this is the analyst. If you can hear us both, we are ready.'],
+    ];
+    for (const [speaker, text] of lines) {
+      this.channel.say({ prio: 9, maxAge: 30, clip: this.prepare(speaker, text, 'excited'), speaker, text, intensity: 'excited', t });
+    }
+  }
+
   reset() {
     this.channel.stopAll();
     this.narrative.reset();

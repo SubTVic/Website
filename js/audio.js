@@ -8,8 +8,19 @@ export class AudioEngine {
     this.ducked = false;
   }
 
-  // Must be called from a click (browser autoplay policy)
+  // Must be called synchronously from a click (browser autoplay policy).
+  // On iPhones, Web Audio is muted by the silent switch unless the page plays
+  // a regular media element or declares itself as a playback app.
   async start() {
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    } catch {}
+    if (!this.keepAlive) {
+      this.keepAlive = new Audio(URL.createObjectURL(silentWav()));
+      this.keepAlive.loop = true;
+      this.keepAlive.setAttribute('playsinline', '');
+    }
+    this.keepAlive.play().catch(() => {});
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
@@ -165,4 +176,26 @@ export class AudioEngine {
     src.start();
     return { done, stop: () => { try { src.stop(); } catch {} } };
   }
+}
+
+// One second of silence as a WAV file (keeps the iOS audio session in playback mode)
+function silentWav() {
+  const rate = 8000;
+  const buf = new ArrayBuffer(44 + rate);
+  const v = new DataView(buf);
+  const str = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF');
+  v.setUint32(4, 36 + rate, true);
+  str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate, true);
+  v.setUint16(32, 1, true);
+  v.setUint16(34, 8, true);
+  str(36, 'data');
+  v.setUint32(40, rate, true);
+  new Uint8Array(buf, 44).fill(128);
+  return new Blob([buf], { type: 'audio/wav' });
 }
