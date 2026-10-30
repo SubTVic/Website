@@ -138,3 +138,7 @@ dialog input:not([type=checkbox]):not([type=range]), dialog select {
   .scoreboard { grid-column: 1 / -1; }
   .panel { max-height: none; border-top: 0; border-left: 1px solid var(--line); }
 }
+
+.check-log { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; }
+.check-log li { padding: 3px 0; border-bottom: 1px solid var(--line); color: #6ee7a0; }
+.check-log li.bad { color: #ff8a8a; }

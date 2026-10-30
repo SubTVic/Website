@@ -73,6 +73,7 @@ let teamBlobs = [[], []];
 let fps = 0;
 let frameData = null;
 let gameOver = false;
+let checkLog = []; // results of the last sound check
 
 const director = new Director({
   audio,
@@ -465,7 +466,8 @@ function renderPanel() {
         <button data-act="corners">Corners</button>
         <button data-act="swap">Swap sides</button>
         <button data-act="debug">${debug ? 'Hide mask' : 'Show mask'}</button>
-      </div>`,
+      </div>
+      ${checkLog.length ? `<ul class="check-log">${checkLog.map((l) => `<li class="${/FAILED|not available|no API|no play|suspended|interrupted|closed/.test(l) ? 'bad' : ''}">${escapeHtml(l)}</li>`).join('')}</ul>` : ''}`,
     live: `
       ${gameOver ? `<h2>Full time: ${escapeHtml(n[game.score[0] > game.score[1] ? 0 : 1])} win ${Math.max(...game.score)}–${Math.min(...game.score)}</h2>` : ''}
       <div class="row">
@@ -482,6 +484,7 @@ function renderPanel() {
         ${gameOver ? '' : '<button data-act="new-game">New match</button>'}
         <button data-act="calibrate">Calibrate</button>
       </div>
+      ${checkLog.length ? `<ul class="check-log">${checkLog.map((l) => `<li class="${/FAILED|not available|no API|no play|suspended|interrupted|closed/.test(l) ? 'bad' : ''}">${escapeHtml(l)}</li>`).join('')}</ul>` : ''}
       <ul id="event-log"></ul>`,
   };
   p.innerHTML = views[step];
@@ -563,7 +566,12 @@ async function soundCheck() {
   await started;
   director.configure();
   director.setMuted(false);
-  director.soundCheck();
+  checkLog = [];
+  renderPanel();
+  director.soundCheck((line) => {
+    checkLog.push(line);
+    renderPanel();
+  });
 }
 
 async function kickoff() {

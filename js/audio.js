@@ -29,7 +29,12 @@ export class AudioEngine {
       this.speech = this.ctx.createGain();
       this.speech.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    // iOS also knows an 'interrupted' state; a tiny buffer played inside the tap unlocks output
+    const blip = this.ctx.createBufferSource();
+    blip.buffer = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+    blip.connect(this.ctx.destination);
+    blip.start();
+    if (this.ctx.state !== 'running') await this.ctx.resume().catch(() => {});
   }
 
   buildCrowd() {

@@ -162,16 +162,34 @@ export class Director {
   }
 
   // Whistle, crowd and both voices, so the sound can be checked before kickoff
-  soundCheck() {
+  // Tests every part of the sound on its own and reports each result
+  async soundCheck(report) {
+    const s = this.getSettings();
+    const say = (speaker, text, clip) => this.channel.say({ prio: 9, maxAge: 60, clip, speaker, text, intensity: 'excited', t: now() });
+
+    report(`Web Audio (crowd, whistle, ElevenLabs): ${this.audio.ctx ? this.audio.ctx.state : 'not available'}`);
     this.audio.whistle([0.4]);
     this.audio.roar();
-    const t = now();
-    const lines = [
-      ['pbp', 'Sound check! This is your play-by-play commentator.'],
-      ['color', 'And this is the analyst. If you can hear us both, we are ready.'],
-    ];
-    for (const [speaker, text] of lines) {
-      this.channel.say({ prio: 9, maxAge: 30, clip: this.prepare(speaker, text, 'excited'), speaker, text, intensity: 'excited', t });
+
+    const bv = this.browserVoices.pbp;
+    report(`Browser voice: ${bv.synth ? bv.voice?.name || 'default voice' : 'not available'}`);
+
+    if (s.tts !== 'elevenlabs') return report('ElevenLabs: off (Speech is set to Browser voice)'), say('pbp', 'Sound check with the browser voice.', bv.prepare('Sound check with the browser voice.', 'excited'));
+    if (!s.elevenKey) return report('ElevenLabs: no API key entered');
+    if (!s.voicePbp) return report('ElevenLabs: no play-by-play voice ID entered');
+
+    for (const [speaker, text] of [['pbp', 'Sound check! This is your play-by-play commentator.'], ['color', 'And this is the analyst. If you can hear us both, we are ready.']]) {
+      const t0 = performance.now();
+      try {
+        const clip = await this.voices[speaker].prepare(text, 'excited');
+        report(`ElevenLabs ${speaker === 'pbp' ? 'play-by-play' : 'analyst'}: OK, ${Math.round(performance.now() - t0)} ms`);
+        say(speaker, text, Promise.resolve(clip));
+      } catch (err) {
+        const why = err.status ? `${err.status} ${err.userMessage}: ${err.message.replace(/^ElevenLabs \d+: /, '').slice(0, 160)}`
+          : err.name === 'EncodingError' ? 'audio could not be decoded'
+          : `request blocked or offline (${err.message})`;
+        report(`ElevenLabs ${speaker === 'pbp' ? 'play-by-play' : 'analyst'}: FAILED, ${why}`);
+      }
     }
   }
 
@@ -236,7 +254,8 @@ export class Director {
         if (done % 5 === 0 || !jobs.length) this.onStatus(`Voices ${done}…`, 'offline');
       }
     };
-    await Promise.all([worker(), worker(), worker()]);
+    // Two at a time, so live lines still fit within the plan's concurrency limit
+    await Promise.all([worker(), worker()]);
     this.onStatus(this.llmStatus(), 'ok');
   }
 
