@@ -68,14 +68,14 @@ python3 -m http.server 8000
 ## Using it
 
 1. **Start camera.** Phone on a tripod, ideally from above, with the whole field in view. Or load a video file.
-2. **Mark the field.** Tap the 4 corners clockwise, starting at a corner next to the left team's goal and going along the side wall first. The goals are then shown in team colours. If they're the wrong way round: **Swap sides**.
+2. **Mark the field.** The teams are fixed: **Team Sandra** (left, red) and **Team Thomas** (right, blue). Tap the 4 corners clockwise, starting at a corner next to Team Sandra's goal and going along the side wall first. The goals are then shown in team colours. If they're the wrong way round: **Swap sides**.
 3. **Tap the ball** while it lies still. The yellow circle should then follow it.
 4. Optional: **team stickers.** Put coloured stickers on the figures and tap their colour.
 5. **Kick off!**
 
 Under ⚙ enter your **Claude API key** (from [console.anthropic.com](https://console.anthropic.com)). Haiku is preselected because it answers fastest. Without a key the app uses script lines only. For better voices choose **ElevenLabs**, enter the ElevenLabs key and one voice ID each for play-by-play and analyst (from the ElevenLabs Voice Library). All keys stay on your device.
 
-Goals are detected automatically when the ball disappears at the goal line. If detection gets it wrong, fix it with **Goal Red / Goal Blue / −1**.
+Goals are detected automatically when the ball disappears at the goal line. If detection gets it wrong, fix it with **Goal Team Sandra / Goal Team Thomas / −1**.
 
 ## Tips for good detection
 

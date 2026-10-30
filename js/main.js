@@ -8,11 +8,12 @@ import { Script } from './script.js';
 const PROC_WIDTH = 320; // processing resolution (width in pixels)
 const BALL_CM = 3.5;
 const TEAM_COLORS_DEFAULT = ['#e5484d', '#3e8ef7'];
+// The two teams are fixed: left (red) and right (blue)
+const TEAM_NAMES = ['Team Sandra', 'Team Thomas'];
 
 const DEFAULTS = {
   apiKey: '',
   model: 'claude-haiku-5-5',
-  names: ['Red', 'Blue'],
   tableLen: 120,
   tableWid: 68,
   shotKmh: 18,
@@ -48,6 +49,7 @@ function save(key, value) {
 
 const SETTINGS_KEY = 'kicker.settings.v2';
 const settings = load(SETTINGS_KEY, DEFAULTS);
+settings.names = TEAM_NAMES;
 const calib = load('kicker.calib', { corners: [], ball: null, teams: [null, null] });
 
 // ——— DOM ———
@@ -555,8 +557,6 @@ function openSettings() {
   const f = $('settings-form');
   f.apiKey.value = settings.apiKey;
   f.model.value = settings.model;
-  f.name0.value = settings.names[0];
-  f.name1.value = settings.names[1];
   f.tableLen.value = settings.tableLen;
   f.tableWid.value = settings.tableWid;
   f.shotKmh.value = settings.shotKmh;
@@ -578,7 +578,6 @@ function saveSettings() {
   const f = $('settings-form');
   settings.apiKey = f.apiKey.value.trim();
   settings.model = f.model.value;
-  settings.names = [f.name0.value.trim() || DEFAULTS.names[0], f.name1.value.trim() || DEFAULTS.names[1]];
   settings.tableLen = Number(f.tableLen.value) || DEFAULTS.tableLen;
   settings.tableWid = Number(f.tableWid.value) || DEFAULTS.tableWid;
   settings.shotKmh = Number(f.shotKmh.value) || DEFAULTS.shotKmh;
