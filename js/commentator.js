@@ -1,39 +1,33 @@
-// Regie des Live-Kommentars, aufgebaut wie in Fußball-Videospielen:
-//  1. Sofort-Ausruf (vorab erzeugt, ohne Wartezeit) + Publikumsreaktion
-//  2. Claude schreibt parallel den Anschluss-Kommentar mit Spielkontext und Story
-//  3. Zwei Stimmen: Reporter (Play-by-Play) und Experte (Analyse in ruhigen Phasen)
-//  4. Eine Sprechwarteschlange mit Prioritäten: Wichtiges unterbricht Unwichtiges,
-//     veraltete Sätze werden verworfen.
+// Live commentary director, built like sports video games do it:
+//  1. Instant call from the script database (pre-generated audio, zero wait) + crowd reaction
+//  2. Meanwhile Claude Haiku picks the best follow-up lines from the database for this exact
+//     situation and stitches them together (or the code picks one when offline)
+//  3. Two voices: play-by-play (pbp) and analyst (color), who fills the quiet spells
+//  4. One speech queue with priorities: big moments interrupt small ones, stale lines are dropped
 
-import { BARKS, offlineFollowUp } from './lines.js';
 import { Narrative } from './narrative.js';
+import { buildSlots } from './script.js';
 import { BrowserVoice, ElevenLabsVoice } from './tts.js';
 
 const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.135.0/+esm';
 
-// Modelle mit serverseitigem Fallback bei Ablehnungen
+// Models that support the server-side fallback on refusals
 const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-sonnet-5-5']);
 
-const ROLE_NAMES = {
-  Torwart: 'Torwart',
-  Abwehr: 'Zweierreihe (Abwehr)',
-  Mittelfeld: 'Fünferreihe (Mittelfeld)',
-  Sturm: 'Dreierreihe (Sturm)',
-};
+const ROLE_NAMES = { goalie: 'goalie', defence: 'two-bar (defence)', midfield: 'five-bar (midfield)', attack: 'three-bar (attack)' };
 
-const SYSTEM_PROMPT = `Ihr seid das Kommentatoren-Duo einer TV-Liveübertragung, wie in einem Fußball-Videospiel, und kommentiert ein echtes Tischkicker-Spiel, das gerade von einer Kamera erfasst wird.
+const SYSTEM_PROMPT = `You are the live commentary director for a TV-style broadcast of a real foosball (table football) match that a camera is tracking right now. There are two commentators:
+PBP: play-by-play. Energetic, quick, emotional, builds up at goals and tight scorelines.
+COLOR: the analyst, a former table football pro. Calmer, puts things in context, uses the stats and the story, dry sense of humour.
 
-REPORTER: macht das Play-by-Play. Energiegeladen, schnell, emotional, steigert sich bei Toren und knappen Spielständen.
-EXPERTE: ehemaliger Profi am Kickertisch. Ordnet ein, analysiert Spielverlauf und Statistik, hat trockenen Humor, spricht ruhiger.
-
-Du bekommst den Anlass des Kommentars, die Story des Spiels, Statistik und was bereits gesagt wurde. Antworte mit 1 bis 2 Sprechzeilen (beim Anpfiff und Spielende bis zu 3):
-- Reporter höchstens 18 Wörter pro Zeile, Experte höchstens 25.
-- Die Zeilen werden sofort vorgelesen: natürliche gesprochene Sprache, keine Emojis, kein Markdown, keine Regieanweisungen, Zahlen so schreiben, wie man sie spricht.
-- Greife die Story auf (Ausgleich, Führungswechsel, Aufholjagd, Serie, Matchball, Rekordschuss), denn das macht den Kommentar lebendig.
-- Nutze Kicker-Begriffe: Torwart, Zweierreihe, Fünferreihe, Dreierreihe, Stange, Bande, Ballkontrolle, Parade.
-- Nenne Teams nur mit den angegebenen Namen. Erfinde keine Spielernamen, keine Schusstechniken und keine Ereignisse, die nicht in den Daten stehen.
-- Wiederhole nichts, was unter "Bereits gesagt" steht, auch nicht sinngemäß.
-- intensity: ruhig, gespannt, aufgeregt oder ekstatisch (ekstatisch nur bei Toren und Spielentscheidungen).`;
+Each request gives you the moment, the facts, what was already said and CANDIDATE lines from the broadcast script, already filled in with names and numbers. Decide what is said next:
+- Return 1 or 2 lines (up to 3 at kickoff and at full time).
+- Build every line from the candidates: use one verbatim, merge two into one, or trim and adjust a few words so it flows and fits the facts exactly. Only write a new line when no candidate fits, and then keep the same style.
+- Never state anything that is not in the facts or the candidates. Never invent player names or shot techniques.
+- Never repeat or closely paraphrase anything under "Already said".
+- PBP lines at most 18 words, COLOR lines at most 25 words. Spoken English only: no emojis, no markdown, no stage directions.
+- For each line, list the ids of the candidates it is based on (empty if none).
+- intensity: calm, tense, excited or ecstatic (ecstatic only for goals and match-deciding moments).`;
 
 const OUTPUT_SCHEMA = {
   type: 'object',
@@ -43,11 +37,12 @@ const OUTPUT_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          speaker: { type: 'string', enum: ['reporter', 'experte'] },
+          speaker: { type: 'string', enum: ['pbp', 'color'] },
           text: { type: 'string' },
-          intensity: { type: 'string', enum: ['ruhig', 'gespannt', 'aufgeregt', 'ekstatisch'] },
+          intensity: { type: 'string', enum: ['calm', 'tense', 'excited', 'ecstatic'] },
+          ids: { type: 'array', items: { type: 'string' } },
         },
-        required: ['speaker', 'text', 'intensity'],
+        required: ['speaker', 'text', 'intensity', 'ids'],
         additionalProperties: false,
       },
     },
@@ -56,7 +51,7 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-// ——— Sprechwarteschlange ———
+// ——— Speech queue ———
 
 class Channel {
   constructor({ onStart, onIdle, isMuted }) {
@@ -72,7 +67,7 @@ class Channel {
     return !!this.current || this.queue.length > 0;
   }
 
-  // item: { prio, clip: Promise<Clip>, speaker, text, intensity, t, maxAge, interrupt }
+  // item: { prio, clip: Promise<Clip>, speaker, text, intensity, t, maxAge, notBefore?, interrupt? }
   say(item) {
     if (this.isMuted()) return;
     item.seq = this.seq++;
@@ -93,11 +88,14 @@ class Channel {
     let clip = null;
     try {
       clip = await item.clip;
+      // Let a big moment breathe (crowd roar) before the follow-up
+      const wait = (item.notBefore ?? 0) - now();
+      if (wait > 0) await sleep(wait * 1000);
     } catch (err) {
-      console.warn('Sprachausgabe fehlgeschlagen:', err);
+      console.warn('Speech failed:', err);
     }
-    if (this.current !== item) return; // in der Zwischenzeit unterbrochen
-    const stale = performance.now() / 1000 - item.t > item.maxAge;
+    if (this.current !== item) return; // interrupted meanwhile
+    const stale = now() - item.t > item.maxAge;
     if (clip && !stale) {
       item.handle = clip.play();
       this.onStart(item);
@@ -121,24 +119,24 @@ class Channel {
   }
 }
 
-// ——— Regie ———
+// ——— Director ———
 
 export class Director {
-  constructor({ audio, getSettings, onLine, onStatus, onGameOver }) {
+  constructor({ audio, script, getSettings, onLine, onStatus, onGameOver }) {
     this.audio = audio;
+    this.script = script;
     this.getSettings = getSettings;
     this.onLine = onLine;
     this.onStatus = onStatus;
     this.onGameOver = onGameOver;
     this.narrative = new Narrative(10);
-    this.browserVoices = { reporter: new BrowserVoice('reporter'), experte: new BrowserVoice('experte') };
+    this.browserVoices = { pbp: new BrowserVoice('pbp'), color: new BrowserVoice('color') };
     this.voices = this.browserVoices;
     this.ttsDisabled = false;
-    this.barkClips = new Map();
-    this.lastBark = {};
-    this.lastBarkT = {};
+    this.barkClips = new Map(); // text -> Promise<Clip>
     this.recentEvents = [];
     this.said = [];
+    this.lastBarkT = {};
     this.llmInflight = 0;
     this.llmDisabledUntil = 0;
     this.lastTalk = now();
@@ -148,7 +146,7 @@ export class Director {
       onStart: (item) => {
         this.audio.duck(true);
         this.remember(item.speaker, item.text);
-        this.onLine(item.speaker, item.text, item.intensity === 'ekstatisch');
+        this.onLine(item.speaker, item.text, item.intensity === 'ecstatic');
       },
       onIdle: () => {
         this.audio.duck(false);
@@ -166,45 +164,62 @@ export class Director {
   reset() {
     this.channel.stopAll();
     this.narrative.reset();
+    this.script?.reset();
     this.recentEvents = [];
     this.said = [];
   }
 
-  // Stimmen gemäß Einstellungen aufbauen
+  // Build the voices from the settings
   configure() {
     const s = this.getSettings();
     this.narrative.goalsToWin = s.goalsToWin;
+    this.narrative.hardKmh = s.shotKmh * 2;
     this.barkClips.clear();
     this.ttsDisabled = false;
-    if (s.tts === 'elevenlabs' && s.elevenKey && s.voiceReporter) {
+    if (s.tts === 'elevenlabs' && s.elevenKey && s.voicePbp) {
       const make = (voiceId) => new ElevenLabsVoice({ apiKey: s.elevenKey, voiceId, modelId: s.elevenModel }, this.audio);
-      this.voices = { reporter: make(s.voiceReporter), experte: make(s.voiceExperte || s.voiceReporter) };
+      this.voices = { pbp: make(s.voicePbp), color: make(s.voiceColor || s.voicePbp) };
     } else {
       this.voices = this.browserVoices;
     }
   }
 
-  // Vor dem Anpfiff: alle Sofort-Ausrufe vorab erzeugen, damit sie ohne Verzögerung kommen
+  get premiumVoice() {
+    return this.voices !== this.browserVoices && !this.ttsDisabled;
+  }
+
+  // Before kickoff: pre-generate instant calls so they play without delay.
+  // Per situation, lines that are already cached come first, then a few new ones,
+  // so variety grows from match to match while the cost per match stays small.
   async warmUp(names) {
-    if (this.voices === this.browserVoices) return;
-    const jobs = [];
-    for (const [type, lines] of Object.entries(BARKS)) {
-      for (const [template, intensity] of lines) {
-        const texts = template.includes('{team}') ? names.map((n) => template.replaceAll('{team}', n)) : [template];
-        for (const text of texts) jobs.push({ type, text, intensity });
-      }
+    if (!this.premiumVoice || !this.script) return;
+    const perSituation = 6;
+    const groups = new Map();
+    for (const b of this.script.allBarks(names)) {
+      const key = `${b.event}.${b.situation}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(b);
     }
-    // Torschreie zuerst, sie sind am wichtigsten
-    jobs.sort((a, b) => (b.type === 'goal') - (a.type === 'goal'));
+    const jobs = [];
+    for (const [key, list] of groups) {
+      const shuffled = list.sort(() => Math.random() - 0.5);
+      const cached = [];
+      const fresh = [];
+      for (const b of shuffled) ((await this.voices.pbp.isCached(b.text, b.intensity)) ? cached : fresh).push(b);
+      const keep = key.startsWith('goal.') ? perSituation * 2 : perSituation;
+      jobs.push(...cached, ...fresh.slice(0, Math.max(0, keep - cached.length)));
+    }
+    // Goal calls first, they matter most
+    jobs.sort((a, b) => (b.event === 'goal') - (a.event === 'goal'));
     let done = 0;
     const worker = async () => {
-      while (jobs.length && !this.ttsDisabled) {
+      while (jobs.length && this.premiumVoice) {
         const j = jobs.shift();
-        const clip = this.prepare('reporter', j.text, j.intensity);
+        const clip = this.prepare('pbp', j.text, j.intensity);
         this.barkClips.set(j.text, clip);
         await clip.catch(() => {});
         done++;
-        this.onStatus(`Stimmen laden ${done}…`, 'offline');
+        if (done % 5 === 0 || !jobs.length) this.onStatus(`Voices ${done}…`, 'offline');
       }
     };
     await Promise.all([worker(), worker(), worker()]);
@@ -214,18 +229,18 @@ export class Director {
   prepare(speaker, text, intensity) {
     const voice = this.ttsDisabled ? this.browserVoices[speaker] : this.voices[speaker];
     return voice.prepare(text, intensity).catch((err) => {
-      this.onStatus(err.userMessage || 'Sprachfehler', 'error');
+      this.onStatus(err.userMessage || 'Voice error', 'error');
       if (err.status === 401 || err.status === 404) this.ttsDisabled = true;
       return this.browserVoices[speaker].prepare(text, intensity);
     });
   }
 
   llmStatus() {
-    return this.getSettings().apiKey ? 'KI-Kommentar' : 'Offline-Vorlagen';
+    return this.getSettings().apiKey ? 'AI commentary' : 'Script only';
   }
 
   remember(speaker, text) {
-    this.said.push(`${speaker === 'experte' ? 'Experte' : 'Reporter'}: ${text}`);
+    this.said.push(`${speaker === 'color' ? 'COLOR' : 'PBP'}: ${text}`);
     if (this.said.length > 10) this.said.shift();
   }
 
@@ -238,36 +253,53 @@ export class Director {
   }
 
   react(e, ctx) {
-    const { names, gameTime } = ctx;
+    const { names, gameTime, snapshot } = ctx;
+    const s = this.getSettings();
+    const hard = s.shotKmh * 2;
+    const slotsFor = (team, story, extra) =>
+      buildSlots({ names, score: e.score || snapshot.score, team, snapshot, story, goalsToWin: s.goalsToWin, extra });
+
     switch (e.type) {
       case 'kickoff':
         this.narrative.reset();
         this.narrative.restart(gameTime);
         this.audio.whistle([0.6]);
-        this.followUp('kickoff', ctx, {}, { prio: 4, maxAge: 12 });
+        this.followUp('kickoff', ['opening'], slotsFor(0), ctx, 'Kickoff. Welcome the viewers; PBP opens, COLOR gives a short preview.', { prio: 4, maxAge: 12, lines: 2 });
         break;
       case 'resume':
         this.audio.whistle([0.3]);
-        this.bark('restart', null, names, { prio: 2, maxAge: 3 });
+        this.bark('resume', 'generic', null, names, { prio: 2, maxAge: 3 });
         break;
       case 'pause':
         this.audio.whistle([0.25, 0.25]);
+        this.bark('pause', 'generic', null, names, { prio: 2, maxAge: 3 });
         break;
-      case 'shot':
+      case 'shot': {
         this.audio.rise();
-        this.bark('shot', e.team, names, { prio: 3, maxAge: 1.2, interrupt: true });
+        const situation = e.kmh >= hard ? 'hard' : (e.role === 'defence' || e.role === 'midfield') && Math.random() < 0.6 ? 'long_range' : 'generic';
+        this.bark('shot', situation, e.team, names, { prio: 3, maxAge: 1.2, interrupt: true });
         break;
-      case 'save':
+      }
+      case 'save': {
         this.audio.ooh();
-        this.bark('save', e.team, names, { prio: 4, maxAge: 1.8, interrupt: true });
-        if (Math.random() < 0.6) this.followUp('save', ctx, { event: e }, { prio: 2, maxAge: 7 });
+        const big = e.shotKmh >= hard;
+        const situation = big ? 'big' : e.role === 'goalie' ? 'keeper' : e.role === 'defence' ? 'defense' : 'generic';
+        this.bark('save', situation, e.team, names, { prio: 4, maxAge: 1.8, interrupt: true });
+        if (Math.random() < 0.6) {
+          const slots = slotsFor(e.team, {}, { shot_speed: `${e.shotKmh} kilometres per hour` });
+          const sits = [snapshot.saves[e.team] >= 3 && 'busy', big && 'big', 'generic'].filter(Boolean);
+          this.followUp('save', sits, slots, ctx, `Save by ${names[e.team]} against a shot at ${e.shotKmh} km/h. PBP already reacted; one short line, ideally COLOR, on why it was good.`, { prio: 2, maxAge: 7, lines: 1 });
+        }
         break;
+      }
       case 'goal': {
         this.audio.roar();
-        const tags = this.narrative.onGoal(e.team, e.score, gameTime, e.kmh);
-        const bark = this.bark('goal', e.team, names, { prio: 6, maxAge: 4, interrupt: true });
-        this.followUp('goal', ctx, { event: e, tags, bark }, { prio: 5, maxAge: 20 });
-        if (this.narrative.over) {
+        const g = this.narrative.onGoal(e.team, e.score, gameTime, e.kmh);
+        const call = this.bark('goal', g.bark, e.team, names, { prio: 6, maxAge: 4, interrupt: true });
+        const over = this.narrative.over;
+        const moment = `GOAL by ${names[e.team]}. The instant call "${call}" was already shouted: continue from it without repeating the call.${over ? ' That goal WINS THE MATCH: PBP announces the winner, COLOR gives a short verdict.' : ''}`;
+        this.followUp('goal', g.situations, slotsFor(e.team, g.story), ctx, moment, { prio: 5, maxAge: 20, notBefore: now() + 1.4, lines: over ? 3 : 2 });
+        if (over) {
           setTimeout(() => this.audio.whistle([0.3, 0.3, 0.9]), 1800);
           this.onGameOver(e.team);
         }
@@ -275,148 +307,165 @@ export class Director {
       }
       case 'correction':
         this.narrative.onCorrection();
-        this.bark('correction', e.team, names, { prio: 4, maxAge: 3, interrupt: true });
-        this.followUp('correction', ctx, { event: e }, { prio: 4, maxAge: 8 }, true);
+        this.bark('correction', 'generic', e.team, names, { prio: 4, maxAge: 3, interrupt: true });
+        this.followUp('correction', ['generic'], slotsFor(e.team), ctx, `A goal for ${names[e.team]} was taken off.`, { prio: 4, maxAge: 8, lines: 1 }, true);
         break;
       case 'control': {
-        const type = e.role === 'Sturm' ? 'danger' : e.role === 'Mittelfeld' ? 'build' : 'defense';
+        const type = e.role === 'attack' ? 'danger' : e.role === 'midfield' ? 'build' : 'defense';
         const chance = type === 'danger' ? 0.8 : 0.3;
         const cooldown = type === 'danger' ? 4 : 9;
         if (!this.channel.busy && Math.random() < chance && now() - (this.lastBarkT[type] || 0) > cooldown) {
-          this.bark(type, e.team, names, { prio: 1, maxAge: 1.5 });
+          this.bark(type, 'generic', e.team, names, { prio: 1, maxAge: 1.5 });
         }
         break;
       }
       case 'restart':
         this.narrative.restart(gameTime);
-        if (!this.channel.busy && Math.random() < 0.5) this.bark('restart', null, names, { prio: 1, maxAge: 2 });
+        if (!this.channel.busy && Math.random() < 0.5) this.bark('restart', 'generic', null, names, { prio: 1, maxAge: 2 });
         break;
       case 'lost':
-        if (!this.channel.busy) this.bark('lost', null, names, { prio: 1, maxAge: 3 });
+        if (!this.channel.busy) this.bark('lost', 'generic', null, names, { prio: 1, maxAge: 3 });
         break;
     }
   }
 
-  // Ruhige Phase? Dann übernimmt der Experte (oder der Reporter fasst zusammen).
+  // Quiet spell? The analyst takes over (or play-by-play sums up).
   tick(running, ctx) {
     const s = this.getSettings();
     if (!running || this.channel.busy || this.llmInflight) return;
     if (now() - this.lastTalk < s.fillerSec) return;
     this.lastTalk = now();
-    this.followUp('analysis', ctx, {}, { prio: 0, maxAge: 10 });
+    const { situations, extra } = this.narrative.analysis(ctx.snapshot.score, ctx.names, ctx.snapshot, ctx.gameTime);
+    const slots = buildSlots({ names: ctx.names, score: ctx.snapshot.score, snapshot: ctx.snapshot, goalsToWin: s.goalsToWin, extra });
+    this.followUp('analysis', situations, slots, ctx, 'A quiet spell with no big action. COLOR offers a short insight on the state of the match, the stats or the tension, possibly as a quick exchange with PBP.', { prio: 0, maxAge: 10, lines: 1, preferColor: true });
   }
 
-  bark(type, team, names, opts) {
-    const options = BARKS[type].filter(([tpl]) => team !== null || !tpl.includes('{team}'));
-    // Nicht zweimal hintereinander denselben Ausruf
-    const pool = options.length > 1 ? options.filter(([tpl]) => tpl !== this.lastBark[type]) : options;
-    const [tpl, intensity] = pool[Math.floor(Math.random() * pool.length)];
-    this.lastBark[type] = tpl;
-    this.lastBarkT[type] = now();
-    const text = team !== null ? tpl.replaceAll('{team}', names[team]) : tpl;
-    const clip = this.barkClips.get(text) || this.prepare('reporter', text, intensity);
-    this.channel.say({ ...opts, clip, speaker: 'reporter', text, intensity, t: now() });
-    return text;
+  bark(event, situation, team, names, opts) {
+    const slots = team !== null ? { team: names[team], opponent: names[1 - team] } : {};
+    let cands = this.script.candidates('barks', event, situation, slots, { limit: 20 });
+    if (!cands.length && situation !== 'generic') cands = this.script.candidates('barks', event, 'generic', slots, { limit: 20 });
+    if (!cands.length) return '';
+    // With a premium voice, prefer calls whose audio is already generated
+    const ready = this.premiumVoice ? cands.filter((c) => this.barkClips.has(c.text)) : [];
+    const pick = (ready.length ? ready : cands)[0];
+    this.script.markUsed(pick.id);
+    this.lastBarkT[event] = now();
+    const clip = this.barkClips.get(pick.text) || this.prepare('pbp', pick.text, pick.intensity);
+    this.channel.say({ ...opts, clip, speaker: 'pbp', text: pick.text, intensity: pick.intensity, t: now() });
+    return pick.text;
   }
 
-  // Anschluss-Kommentar: Claude (oder Vorlagen) mit Kontext
-  async followUp(kind, ctx, extra, opts, offlineOnly = false) {
+  // Candidate lines for the most interesting situations that have any
+  gather(event, situations, slots, preferColor) {
+    const out = [];
+    let used = 0;
+    for (const situation of situations) {
+      const pbp = this.script.candidates('lines', event, situation, slots, { speaker: 'pbp', limit: 3 });
+      const color = this.script.candidates('lines', event, situation, slots, { speaker: 'color', limit: 3 });
+      if (!pbp.length && !color.length) continue;
+      out.push(...[...pbp, ...color].map((c) => ({ ...c, situation })));
+      if (++used >= (preferColor ? 4 : 3)) break;
+    }
+    return out;
+  }
+
+  async followUp(event, situations, slots, ctx, moment, opts, offlineOnly = false) {
     const t = now();
     const s = this.getSettings();
+    const cands = this.gather(event, situations, slots, opts.preferColor);
     let lines = null;
     if (!offlineOnly && s.apiKey && t > this.llmDisabledUntil) {
       this.llmInflight++;
       try {
-        lines = await this.askClaude(kind, ctx, extra, s);
+        lines = await this.askClaude(moment, cands, ctx, opts.lines, s);
         this.onStatus(this.llmStatus(), 'ok');
       } catch (err) {
-        this.onStatus(err.userMessage || 'KI-Fehler, nutze Vorlagen', 'error');
-        console.warn('Claude-Anfrage fehlgeschlagen:', err);
+        this.onStatus(err.userMessage || 'AI error, using script', 'error');
+        console.warn('Claude request failed:', err);
         this.llmDisabledUntil = now() + (err.retryAfter ?? 5);
       } finally {
         this.llmInflight--;
       }
     }
-    if (!lines) {
-      const said = (l) => this.said.some((x) => x.endsWith(l[1]));
-      const args = { names: ctx.names, score: ctx.snapshot.score, team: extra.event?.team, tags: extra.tags, stats: ctx.snapshot };
-      let offline = offlineFollowUp(kind, args);
-      // Vorlagen sind begrenzt: nicht direkt dasselbe nochmal sagen
-      for (let i = 0; i < 4 && offline.some(said); i++) offline = offlineFollowUp(kind, args);
-      if (kind === 'analysis' && offline.some(said)) return;
-      lines = offline.map(([speaker, text, intensity]) => ({ speaker, text, intensity }));
-    }
-    if (!s.expert) lines = lines.filter((l) => l.speaker === 'reporter');
+    if (!lines) lines = this.pickOffline(cands, opts);
+    if (!s.expert) lines = lines.filter((l) => l.speaker === 'pbp');
     lines.forEach((l, i) => {
-      // Alle Zeilen sofort synthetisieren, abgespielt wird nacheinander
+      (l.ids || []).forEach((id) => this.script.markUsed(id));
+      // Synthesize all lines right away; they still play one after another
       const clip = this.prepare(l.speaker, l.text, l.intensity);
-      this.channel.say({ prio: opts.prio - i * 0.01, maxAge: opts.maxAge, clip, speaker: l.speaker, text: l.text, intensity: l.intensity, t });
+      this.channel.say({ prio: opts.prio - i * 0.01, maxAge: opts.maxAge, notBefore: opts.notBefore, clip, speaker: l.speaker, text: l.text, intensity: l.intensity, t });
     });
+  }
+
+  // Without AI: the most fitting situation's lines, straight from the script
+  pickOffline(cands, opts) {
+    if (!cands.length) return [];
+    const first = cands[0].situation;
+    const top = cands.filter((c) => c.situation === first);
+    const pbp = top.find((c) => c.speaker === 'pbp') || cands.find((c) => c.speaker === 'pbp');
+    const color = top.find((c) => c.speaker === 'color') || cands.find((c) => c.speaker === 'color');
+    let picked;
+    if (opts.preferColor) picked = [color || pbp];
+    else if (opts.lines >= 2 && color && Math.random() < 0.7) picked = [pbp || color, color].filter((x, i, a) => x && a.indexOf(x) === i);
+    else picked = [pbp || color];
+    return picked.filter(Boolean).map((c) => ({ speaker: c.speaker, text: c.text, intensity: c.intensity, ids: [c.id] }));
   }
 
   logEvent(e, { names, gameTime }) {
     const who = e.team !== undefined ? ` ${names[e.team]}` : '';
     const labels = {
-      goal: `TOR${who}${e.kmh ? `, ${e.kmh} km/h` : ''}${e.manual ? ' (manuell)' : ''}`,
-      shot: `Schuss${who}${e.role ? ` aus der ${ROLE_NAMES[e.role]}` : ''}, ${e.kmh} km/h, ${e.onTarget ? 'aufs Tor' : 'eher vorbei'}`,
-      save: `Parade${who} (${ROLE_NAMES[e.role] || e.role}) gegen ${e.shotKmh} km/h`,
-      control: `Ballkontrolle${who} an der ${ROLE_NAMES[e.role]}`,
-      lost: 'Ball nicht zu sehen',
-      restart: 'Ball wieder im Spiel',
-      correction: `Tor für${who} zurückgenommen`,
-      kickoff: 'Anpfiff',
-      pause: 'Unterbrechung',
-      resume: 'Weiter',
+      goal: `GOAL${who}${e.kmh ? `, ${e.kmh} km/h` : ''}${e.manual ? ' (entered by hand)' : ''}`,
+      shot: `Shot${who}${e.role ? ` from the ${ROLE_NAMES[e.role]}` : ''}, ${e.kmh} km/h, ${e.onTarget ? 'on target' : 'probably wide'}`,
+      save: `Save${who} (${ROLE_NAMES[e.role] || e.role}) against ${e.shotKmh} km/h`,
+      control: `${who.trim()} in control on the ${ROLE_NAMES[e.role]}`,
+      lost: 'Ball out of sight',
+      restart: 'Ball back in play',
+      correction: `Goal for${who} taken off`,
+      kickoff: 'Kickoff',
+      pause: 'Paused',
+      resume: 'Resumed',
     };
     this.recentEvents.push(`${clock(gameTime)} ${labels[e.type] || e.type}`);
     if (this.recentEvents.length > 8) this.recentEvents.shift();
   }
 
-  buildPrompt(kind, { names, snapshot: s, gameTime }, extra) {
-    const goalsToWin = this.getSettings().goalsToWin;
-    const reasons = {
-      kickoff: `ANPFIFF. Begrüßt die Zuschauer zum Spiel ${names[0]} gegen ${names[1]} (gespielt wird bis ${goalsToWin} Tore). Reporter eröffnet, Experte gibt eine kurze Einschätzung.`,
-      goal: `TOR für ${names[extra.event?.team]}. Der Reporter hat schon "${extra.bark}" gerufen. Nicht noch einmal den Torschrei wiederholen, sondern direkt anknüpfen: Spielstand, Story, Emotion. Danach optional ein kurzer Satz des Experten.${this.narrative.over ? ' Das Spiel ist damit VORBEI: Reporter verkündet den Sieger, Experte zieht ein kurzes Fazit.' : ''}`,
-      save: `PARADE von ${names[extra.event?.team]} gegen einen Schuss mit ${extra.event?.shotKmh} km/h. Der Reporter hat schon reagiert. Ein kurzer Satz, am besten vom Experten, warum das stark war.`,
-      correction: `KORREKTUR: Ein Tor für ${names[extra.event?.team]} wurde zurückgenommen.`,
-      analysis: 'RUHIGE PHASE ohne besondere Aktion. Der Experte analysiert kurz die Lage, die Statistik oder die Spannung, gern als kurzer Wechsel mit dem Reporter.',
-    };
-    const lines = [
-      `Anlass: ${reasons[kind]}`,
-      `Spielstand: ${names[0]} ${s.score[0]} : ${s.score[1]} ${names[1]} (gespielt wird bis ${goalsToWin}), Spielzeit ${clock(gameTime)}.`,
+  buildPrompt(moment, cands, { names, snapshot: s, gameTime }, maxLines) {
+    const g = this.getSettings().goalsToWin;
+    const out = [
+      `Moment: ${moment}`,
+      `Return at most ${maxLines} line${maxLines > 1 ? 's' : ''}.`,
+      `Score: ${names[0]} ${s.score[0]}, ${names[1]} ${s.score[1]} (first to ${g} wins). Match time ${clock(gameTime)}.`,
+      `Shots: ${names[0]} ${s.shots[0]} (${s.onTarget[0]} on target), ${names[1]} ${s.shots[1]} (${s.onTarget[1]} on target). Saves: ${names[0]} ${s.saves[0]}, ${names[1]} ${s.saves[1]}.`,
     ];
-    if (extra.tags?.length) lines.push(`Story dieses Tors: ${extra.tags.join('; ')}.`);
-    const situation = this.narrative.situation(s.score, names, gameTime);
-    if (situation.length) lines.push(`Lage: ${situation.join('; ')}.`);
-    lines.push(`Schüsse: ${names[0]} ${s.shots[0]} (${s.onTarget[0]} aufs Tor), ${names[1]} ${s.shots[1]} (${s.onTarget[1]} aufs Tor). Paraden: ${names[0]} ${s.saves[0]}, ${names[1]} ${s.saves[1]}.`);
-    if (s.possession) lines.push(`Ballbesitz: ${names[0]} ${s.possession[0]} %, ${names[1]} ${s.possession[1]} %.`);
-    if (s.maxKmh > 0 && s.maxKmhTeam !== null) lines.push(`Härtester Schuss: ${s.maxKmh} km/h von ${names[s.maxKmhTeam]}.`);
-    if (this.recentEvents.length) lines.push(`Letzte Ereignisse:\n${this.recentEvents.join('\n')}`);
-    if (this.said.length) lines.push(`Bereits gesagt:\n${this.said.slice(-6).join('\n')}`);
-    if (!this.getSettings().expert) lines.push('Heute kommentiert nur der Reporter, keine Expertenzeilen.');
-    return lines.join('\n');
+    if (s.possession) out.push(`Possession: ${names[0]} ${s.possession[0]}%, ${names[1]} ${s.possession[1]}%.`);
+    if (s.maxKmh > 0 && s.maxKmhTeam !== null) out.push(`Fastest shot: ${s.maxKmh} km/h by ${names[s.maxKmhTeam]}.`);
+    if (this.recentEvents.length) out.push(`Recent events:\n${this.recentEvents.join('\n')}`);
+    if (this.said.length) out.push(`Already said:\n${this.said.slice(-6).join('\n')}`);
+    if (!this.getSettings().expert) out.push('Only PBP is on air today: no COLOR lines.');
+    out.push(`Candidates:\n${cands.map((c) => `[${c.id}] (${c.speaker}, ${c.situation}) ${c.text}`).join('\n') || '(none)'}`);
+    return out.join('\n');
   }
 
   async getClient(apiKey) {
     if (this.client && this.clientKey === apiKey) return this.client;
     const mod = await import(SDK_URL);
     this.Anthropic = mod.default;
-    // Der Key bleibt auf diesem Gerät; die App spricht direkt mit der Claude API.
+    // The key stays on this device; the app talks to the Claude API directly.
     this.client = new this.Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0, timeout: 15000 });
     this.clientKey = apiKey;
     return this.client;
   }
 
-  async askClaude(kind, ctx, extra, s) {
+  async askClaude(moment, cands, ctx, maxLines, s) {
     const client = await this.getClient(s.apiKey);
     const A = this.Anthropic;
     const params = {
       model: s.model,
       max_tokens: 1024,
-      // Niedriger Aufwand = schnelle Antwort; das Format erzwingt sauberes JSON
+      // Low effort = fast answer; the schema guarantees clean JSON
       output_config: { effort: 'low', format: { type: 'json_schema', schema: OUTPUT_SCHEMA } },
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: this.buildPrompt(kind, ctx, extra) }],
+      messages: [{ role: 'user', content: this.buildPrompt(moment, cands, ctx, maxLines) }],
     };
     let resp;
     try {
@@ -424,22 +473,22 @@ export class Director {
         ? await client.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })
         : await client.messages.create(params);
     } catch (err) {
-      if (err instanceof A.AuthenticationError) throw tagged(err, 'Claude-Key ungültig', 60);
-      if (err instanceof A.PermissionDeniedError) throw tagged(err, 'Kein Zugriff auf dieses Modell', 60);
-      if (err instanceof A.NotFoundError) throw tagged(err, 'Modell nicht gefunden', 60);
-      if (err instanceof A.RateLimitError) throw tagged(err, 'Rate-Limit erreicht, kurz Pause', 15);
-      if (err instanceof A.BadRequestError) throw tagged(err, 'Ungültige Anfrage', 30);
-      if (err instanceof A.APIError && err.status >= 500) throw tagged(err, 'Claude überlastet', 5);
-      if (err instanceof A.APIConnectionError) throw tagged(err, 'Keine Verbindung zur KI', 5);
+      if (err instanceof A.AuthenticationError) throw tagged(err, 'Claude key invalid', 60);
+      if (err instanceof A.PermissionDeniedError) throw tagged(err, 'No access to this model', 60);
+      if (err instanceof A.NotFoundError) throw tagged(err, 'Model not found', 60);
+      if (err instanceof A.RateLimitError) throw tagged(err, 'Rate limit, pausing AI', 15);
+      if (err instanceof A.BadRequestError) throw tagged(err, 'Invalid AI request', 30);
+      if (err instanceof A.APIError && err.status >= 500) throw tagged(err, 'Claude overloaded', 5);
+      if (err instanceof A.APIConnectionError) throw tagged(err, 'No connection to the AI', 5);
       throw err;
     }
     if (resp.stop_reason === 'refusal' || resp.stop_reason === 'max_tokens') return null;
     const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-    const parsed = JSON.parse(text);
-    return parsed.lines
-      .filter((l) => l.text?.trim())
-      .slice(0, 3)
-      .map((l) => ({ ...l, text: l.text.replace(/[*_#"„“]/g, '').trim() }));
+    const known = new Set(cands.map((c) => c.id));
+    return JSON.parse(text)
+      .lines.filter((l) => l.text?.trim())
+      .slice(0, maxLines)
+      .map((l) => ({ ...l, text: l.text.replace(/[*_#"“”]/g, '').trim(), ids: (l.ids || []).filter((id) => known.has(id)) }));
   }
 }
 
@@ -451,6 +500,10 @@ function tagged(err, userMessage, retryAfter) {
 
 function now() {
   return performance.now() / 1000;
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function clock(sec) {

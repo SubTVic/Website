@@ -1,103 +1,101 @@
-# Kicker-Kommentator
+# Foosball Commentator
 
-Eine Browser-App, die ein Tischkicker-Spiel filmt, den Ball verfolgt und das Spiel live kommentiert wie im Sportfernsehen. Die Kommentare schreibt Claude, eine Sprachausgabe liest sie vor.
+A browser app that films a foosball (table football) match, tracks the ball and commentates live like a TV sports broadcast or a football video game.
 
-Der Prototyp läuft auf dem Handy im Stativ. Später kann dieselbe App auf einem Raspberry Pi mit fest montierter Webcam laufen.
+The prototype runs on a phone on a tripod. Later the same app can run on a Raspberry Pi with a fixed webcam above the table.
 
-## So funktioniert es
+## How it works
 
 ```
-Kamera ──► Bildverarbeitung ──► Spiel-Logik ──► Claude ──► Sprachausgabe
-           (Ball & Sticker      (Tor, Schuss,    (Kommentar-  (+ Untertitel,
-            per Farbe, 60×/s)    Parade, Ball-    satz)        Scoreboard)
-                                 besitz, km/h)
+Camera ──► Image processing ──► Game logic ──► Commentary director ──► Voices + crowd
+           (ball & stickers      (goal, shot,    (script database +      (subtitles,
+            by colour, 60×/s)     save, control,  Claude Haiku)           scoreboard)
+                                  km/h, story)
 ```
 
-Das Sprachmodell schaut **nicht** direkt auf das Video, dafür ist der Ball viel zu schnell. Die Bildverarbeitung erkennt Ereignisse in Echtzeit und schickt Claude nur eine kurze Textbeschreibung („Schuss von Heim, 34 km/h, aufs Tor“). Daraus macht Claude einen Kommentatorensatz.
+The language model never looks at the video, because the ball is far too fast for that. Image processing detects events in real time. The commentary is then built from a large script database.
 
-### Kommentar wie im Fußball-Videospiel
+### Hybrid commentary: script database + Haiku
 
-Fußballspiele wirken lebendig, weil der Kommentar ohne Verzögerung reagiert und trotzdem die Geschichte des Spiels erzählt. Die App kombiniert dafür mehrere Ebenen:
+1. **Script database** (`data/commentary.json`, about 650 lines): professionally styled lines for every situation (opener, equaliser, comeback, streak, match point, winner, big save, quiet spell …), with slots like `{team}`, `{score_line}` or `{speed}`.
+2. **Instant calls** ("Gooooal!", "Saved!", "Danger here!") come straight from the database with zero delay. With ElevenLabs they are pre-generated as audio before kickoff.
+3. **Claude Haiku as director**: for each moment the code picks the fitting candidates from the database, filled in with names and numbers. Haiku chooses the best ones, stitches them together and adjusts a few words so they flow, but does not invent facts. Without an API key, the code picks a line itself.
+4. **Two commentators**: play-by-play and an analyst who fills the quiet spells.
+5. **Stadium atmosphere**: a synthesized crowd rises on shots, goes "oooh" at saves and roars at goals. There are kickoff and full-time whistles too.
+6. **Priorities**: a goal interrupts everything. Lines that would come too late are dropped.
 
-1. **Sofort-Ausrufe** („Toooor!“, „Gehalten!“, „Jetzt wird es gefährlich!“): Sie werden vor dem Anpfiff erzeugt und kommen ohne Wartezeit (`js/lines.js`).
-2. **Publikum**: Ein synthetisches Stadion reagiert mit Spannung beim Schuss, einem „Oooh“ bei Paraden und Jubel bei Toren. Dazu kommen Anpfiff- und Schlusspfiff.
-3. **KI-Anschluss**: Während der Ausruf läuft, schreibt Claude schon den nächsten Satz, mit Spielstand und Story (Ausgleich, Führungswechsel, Aufholjagd, Serie, Matchball, Rekordschuss).
-4. **Zwei Stimmen**: Der Reporter macht das Play-by-Play, der Experte analysiert in ruhigen Phasen.
-5. **Regie mit Prioritäten**: Ein Tor unterbricht alles. Veraltete Sätze werden verworfen, statt zu spät zu kommen.
+Extending the commentary is as easy as adding lines to `data/commentary.json`. `node tests/check_commentary.mjs` checks that every slot is valid.
 
-### Stimmen
+### Voices
 
-| Option | Qualität | Reaktionszeit | Kosten |
+| Option | Quality | Reaction time | Cost |
 |---|---|---|---|
-| Browser-Stimme | eher monoton | sofort | kostenlos |
-| ElevenLabs `eleven_flash_v2_5` | natürlich, Deutsch gut | sehr schnell | Abo/Zeichen |
-| ElevenLabs `eleven_v3` | sehr emotional (versteht `[excited]`) | langsamer | Abo/Zeichen |
+| Browser voice | rather flat | instant | free |
+| ElevenLabs `eleven_flash_v2_5` | natural | very fast | subscription / characters |
+| ElevenLabs `eleven_v3` | very emotional (understands `[excited]`) | slower | subscription / characters |
 
-Erzeugte Ausrufe werden im Browser zwischengespeichert, damit sie beim nächsten Spiel nichts mehr kosten. Für den Raspberry Pi kommt später eine lokale Stimme (z. B. Piper) infrage, die ohne Internet läuft.
+Generated audio is cached in the browser. Each match generates a few new instant calls, so variety grows from match to match while the cost per match stays small.
 
-| Datei | Aufgabe |
+### Files
+
+| File | Purpose |
 |---|---|
-| `js/homography.js` | Rechnet Kamerabild ↔ Spielfeld um (Perspektivkorrektur über die 4 Ecken) |
-| `js/vision.js` | Findet Ball und Team-Sticker über ihre Farbe |
-| `js/game.js` | Erkennt Tore, Schüsse, Paraden, Ballkontrolle; führt Spielstand und Statistik |
-| `js/narrative.js` | Story-Gedächtnis: Ausgleich, Führungswechsel, Serien, Matchball |
-| `js/commentator.js` | Regie: Sofort-Ausrufe, Claude-Anschluss, Sprechwarteschlange |
-| `js/lines.js` | Texte der Sofort-Ausrufe und Ersatz-Kommentare (gern anpassen) |
-| `js/tts.js` | Stimmen: Browser oder ElevenLabs |
-| `js/audio.js` | Stadion-Atmosphäre, Pfiffe, Audiowiedergabe |
-| `js/main.js` | Oberfläche, Kalibrierung, Hauptschleife |
+| `data/commentary.json` | The script database |
+| `js/script.js` | Loads the database, fills slots, picks lines without repeats |
+| `js/narrative.js` | Story memory: equaliser, comeback, streaks, match point |
+| `js/commentator.js` | Director: instant calls, Haiku stitching, speech queue |
+| `js/tts.js` | Voices: browser or ElevenLabs |
+| `js/audio.js` | Crowd, whistles, audio playback |
+| `js/homography.js` | Converts camera image ↔ field (perspective from the 4 corners) |
+| `js/vision.js` | Finds ball and team stickers by colour |
+| `js/game.js` | Detects goals, shots, saves, ball control; keeps score and stats |
+| `js/main.js` | UI, calibration, main loop |
 
-## Starten
+## Getting started
 
-Für den Kamerazugriff muss die Seite über **https** (oder `localhost`) geöffnet werden.
+The camera only works when the page is served over **https** (or `localhost`).
 
-**Variante A: GitHub Pages (für das Handy)**
-1. Auf GitHub im Repo: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, Branch `master`, Ordner `/ (root)`, speichern.
-2. Nach ca. einer Minute ist die App erreichbar unter `https://subtvic.github.io/Website/`.
+**Option A: GitHub Pages (for the phone)**
+1. In the GitHub repo: **Settings → Pages → Build and deployment → Source: Deploy from a branch**, branch `master`, folder `/ (root)`, save.
+2. After about a minute the app is live at `https://subtvic.github.io/Website/`.
 
-**Variante B: lokal am Rechner**
+**Option B: locally**
 ```bash
 python3 -m http.server 8000
-# dann http://localhost:8000 im Browser öffnen
+# then open http://localhost:8000
 ```
 
-## Bedienung
+## Using it
 
-1. **Kamera starten.** Handy aufs Stativ, möglichst von oben, sodass das ganze Spielfeld im Bild ist. Alternativ eine Video-Datei laden.
-2. **Spielfeld markieren.** Die 4 Ecken im Uhrzeigersinn antippen. Dabei an einer Ecke neben dem Heim-Tor beginnen und zuerst entlang der Seitenbande tippen. Die Tore werden danach farbig angezeigt. Falls sie vertauscht sind: **Seiten tauschen**.
-3. **Ball antippen**, solange er ruhig liegt. Der gelbe Kreis sollte ihm danach folgen.
-4. Optional: **Team-Sticker.** Farbige Sticker auf die Figuren kleben und deren Farbe antippen.
-5. **Anpfiff!**
+1. **Start camera.** Phone on a tripod, ideally from above, with the whole field in view. Or load a video file.
+2. **Mark the field.** Tap the 4 corners clockwise, starting at a corner next to the left team's goal and going along the side wall first. The goals are then shown in team colours. If they're the wrong way round: **Swap sides**.
+3. **Tap the ball** while it lies still. The yellow circle should then follow it.
+4. Optional: **team stickers.** Put coloured stickers on the figures and tap their colour.
+5. **Kick off!**
 
-Unter ⚙ trägst du den **Claude API-Key** ein (von [console.anthropic.com](https://console.anthropic.com)). Ohne Key kommentiert die App mit Satzvorlagen. Für bessere Stimmen wählst du dort **ElevenLabs**, trägst den ElevenLabs-Key ein und je eine Voice-ID für Reporter und Experte. Die Voice-IDs findest du in der ElevenLabs Voice Library. Alle Keys werden nur auf deinem Gerät gespeichert.
+Under ⚙ enter your **Claude API key** (from [console.anthropic.com](https://console.anthropic.com)). Haiku is preselected because it answers fastest. Without a key the app uses script lines only. For better voices choose **ElevenLabs**, enter the ElevenLabs key and one voice ID each for play-by-play and analyst (from the ElevenLabs Voice Library). All keys stay on your device.
 
-Tore werden automatisch erkannt, sobald der Ball an der Torlinie verschwindet. Falls die Erkennung danebenliegt, korrigierst du sie mit den Buttons **Tor Heim / Tor Gast / −1**.
+Goals are detected automatically when the ball disappears at the goal line. If detection gets it wrong, fix it with **Goal Red / Goal Blue / −1**.
 
-## Tipps für gute Erkennung
+## Tips for good detection
 
-- **Farbiger Ball** (orange/gelb) statt weiß. Weiße Bälle verwechselt die App leicht mit Linien und Spiegelungen.
-- **Gleichmäßiges Licht** ohne starke Schatten oder Spiegelungen.
-- **Hohe Bildrate:** Ein harter Schuss legt bei 30 Bildern pro Sekunde fast einen halben Tisch pro Bild zurück. 60 fps sind deutlich besser.
-- Mit **Maske zeigen** siehst du, welche Pixel als Ball erkannt werden (magenta). Mit dem Toleranz-Regler oben rechts kannst du nachjustieren.
+- **Coloured ball** (orange/yellow) instead of white. White balls are easily confused with lines and reflections.
+- **Even lighting** without hard shadows or reflections.
+- **High frame rate:** at 30 frames per second a hard shot travels almost half the table per frame. 60 fps is much better.
+- **Show mask** displays which pixels count as ball (magenta). Fine-tune with the tolerance slider at the top right.
 
-## Testen ohne Tisch
-
-`tests/make_test_video.py` erzeugt ein künstliches Kicker-Video mit Tor, Schuss und Parade:
+## Testing without a table
 
 ```bash
-python3 tests/make_test_video.py test.y4m
-```
-
-Das Video kannst du in Chrome als Fake-Kamera verwenden:
-
-```bash
+python3 tests/make_test_video.py test.y4m      # synthetic match with goal, shot and save
 chromium --use-fake-device-for-media-stream --use-file-for-fake-video-capture=test.y4m
+node tests/check_commentary.mjs                # validates the script database
 ```
 
-## Nächste Schritte
+## Next steps
 
-- **ArUco-Marker** in den Tischecken, damit sich die App selbst kalibriert (wichtig für die feste Installation)
-- **KI-Erkennung (YOLO)** für Ball und Figuren, unabhängig von Farben
-- **Raspberry Pi 5** mit fester USB-Webcam (60+ fps) über dem Tisch, Anzeige auf einem Bildschirm
-- **Turniermodus**: Spielerprofile, Spielplan, Tabelle, Statistiken über mehrere Spiele
-- **Bessere Stimmen** über einen Text-to-Speech-Dienst
+- **ArUco markers** in the table corners so the app calibrates itself (important for the fixed installation)
+- **AI detection (YOLO)** for ball and figures, independent of colours
+- **Raspberry Pi 5** with a fixed USB webcam (60+ fps) above the table, output to a screen
+- **Tournament mode**: player profiles, schedule, table, stats across matches
+- **Player names** in the commentary (needs a stitching approach for names, like football games use)

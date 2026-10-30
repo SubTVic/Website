@@ -3,15 +3,16 @@ import { Tracker, makeMatcher, sampleColor } from './vision.js';
 import { Game, ROD_U } from './game.js';
 import { AudioEngine } from './audio.js';
 import { Director } from './commentator.js';
+import { Script } from './script.js';
 
-const PROC_WIDTH = 320; // Verarbeitungsauflösung (Breite in Pixel)
+const PROC_WIDTH = 320; // processing resolution (width in pixels)
 const BALL_CM = 3.5;
 const TEAM_COLORS_DEFAULT = ['#e5484d', '#3e8ef7'];
 
 const DEFAULTS = {
   apiKey: '',
-  model: 'claude-opus-5-5',
-  names: ['Heim', 'Gast'],
+  model: 'claude-haiku-5-5',
+  names: ['Red', 'Blue'],
   tableLen: 120,
   tableWid: 68,
   shotKmh: 18,
@@ -26,11 +27,11 @@ const DEFAULTS = {
   tts: 'browser',
   elevenKey: '',
   elevenModel: 'eleven_flash_v2_5',
-  voiceReporter: '',
-  voiceExperte: '',
+  voicePbp: '',
+  voiceColor: '',
 };
 
-// ——— Persistenz (nur Komfort, die App läuft auch ohne) ———
+// ——— Persistence (convenience only, the app works without it) ———
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -45,7 +46,8 @@ function save(key, value) {
   } catch {}
 }
 
-const settings = load('kicker.settings', DEFAULTS);
+const SETTINGS_KEY = 'kicker.settings.v2';
+const settings = load(SETTINGS_KEY, DEFAULTS);
 const calib = load('kicker.calib', { corners: [], ball: null, teams: [null, null] });
 
 // ——— DOM ———
@@ -85,9 +87,14 @@ const director = new Director({
   },
 });
 
+// The script database loads in the background; kickoff waits for it
+const scriptReady = Script.load()
+  .then((script) => (director.script = script))
+  .catch((err) => alert(`Could not load the commentary database: ${err.message}`));
+
 const commentCtx = () => ({ names: settings.names, snapshot: game.snapshot(), gameTime: game.elapsed });
 
-// ——— Kamera / Video ———
+// ——— Camera / video ———
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -98,7 +105,7 @@ async function startCamera() {
     await video.play();
     onVideoReady();
   } catch (err) {
-    alert(`Kamera konnte nicht gestartet werden: ${err.message}\n\nHinweis: Die Seite muss über https:// (oder localhost) geöffnet sein.`);
+    alert(`Could not start the camera: ${err.message}\n\nNote: the page must be opened via https:// (or localhost).`);
   }
 }
 
@@ -130,9 +137,9 @@ async function requestWakeLock() {
   } catch {}
 }
 
-// ——— Kalibrierung ———
-let H = null; // Video -> Spielfeld
-let Hinv = null; // Spielfeld -> Video
+// ——— Calibration ———
+let H = null; // video -> field
+let Hinv = null; // field -> video
 
 function applyCalibration() {
   H = computeHomography(calib.corners, FIELD_CORNERS);
@@ -141,7 +148,7 @@ function applyCalibration() {
   save('kicker.calib', calib);
 }
 
-// Erwartete Ballfläche in Verarbeitungspixeln (für die Größenprüfung)
+// Expected ball area in processing pixels (for the size check)
 function expectedBallArea() {
   const c = calib.corners;
   const s = proc.width / video.videoWidth;
@@ -187,7 +194,7 @@ function fit(w, h) {
   return { scale, ox: (w - video.videoWidth * scale) / 2, oy: (h - video.videoHeight * scale) / 2 };
 }
 
-// ——— Hauptschleife ———
+// ——— Main loop ———
 let lastFrameT = performance.now();
 
 function loop() {
@@ -230,10 +237,10 @@ function chooseBall(blobs, exp) {
   const now = performance.now();
   let best;
   if (prevBall && now - prevBall.time < 300) {
-    // Nächster Kandidat zur letzten Position
+    // Candidate closest to the last position
     best = cands.reduce((a, b) => (Math.hypot(b.u - prevBall.u, b.v - prevBall.v) < Math.hypot(a.u - prevBall.u, a.v - prevBall.v) ? b : a));
   } else {
-    // Größte Übereinstimmung mit Ballgröße und Rundheit
+    // Best match for ball size and roundness
     const score = (b) => b.roundness - Math.abs(Math.log(b.area / exp)) * 0.3;
     best = cands.reduce((a, b) => (score(b) > score(a) ? b : a));
   }
@@ -247,7 +254,7 @@ function onEvents(events) {
   if (events.some((e) => e.type === 'goal')) flashGoal();
 }
 
-// ——— Zeichnen ———
+// ——— Drawing ———
 function draw() {
   const dpr = window.devicePixelRatio || 1;
   const r = overlay.getBoundingClientRect();
@@ -259,11 +266,11 @@ function draw() {
   octx.clearRect(0, 0, overlay.width, overlay.height);
   const { scale, ox, oy } = fit(r.width, r.height);
   octx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
-  const px = 1 / scale; // eine Bildschirm-Pixelbreite in Videokoordinaten
+  const px = 1 / scale; // one screen pixel in video coordinates
 
   if (debug && H && calib.ball) drawMask();
 
-  // Ecken während der Kalibrierung
+  // Corners during calibration
   octx.fillStyle = '#ffd60a';
   if (step !== 'live') calib.corners.forEach(([x, y], i) => {
     octx.beginPath();
@@ -275,7 +282,7 @@ function draw() {
 
   if (Hinv) {
     const P = (u, v) => applyH(Hinv, u, v);
-    // Spielfeldrand
+    // Field outline
     octx.strokeStyle = 'rgba(255,255,255,0.7)';
     octx.lineWidth = 2 * px;
     octx.beginPath();
@@ -285,7 +292,7 @@ function draw() {
     });
     octx.closePath();
     octx.stroke();
-    // Tore
+    // Goals
     const leftTeam = game.leftTeam();
     [[0, leftTeam], [1, 1 - leftTeam]].forEach(([u, team]) => {
       octx.strokeStyle = teamColor(team);
@@ -295,7 +302,7 @@ function draw() {
       octx.lineTo(...P(u, 0.75));
       octx.stroke();
     });
-    // Stangen
+    // Rods
     octx.lineWidth = 1 * px;
     ROD_U.forEach((u, i) => {
       octx.strokeStyle = teamColor(game.rodAt(u).team) + '88';
@@ -306,7 +313,7 @@ function draw() {
     });
   }
 
-  // Team-Sticker
+  // Team stickers
   teamBlobs.forEach((blobs, team) => {
     octx.strokeStyle = teamColor(team);
     octx.lineWidth = 2 * px;
@@ -317,7 +324,7 @@ function draw() {
     });
   });
 
-  // Ballspur und Ball
+  // Ball trail and ball
   const trail = game.running ? game.trail : [];
   if (trail.length > 1 && Hinv) {
     octx.strokeStyle = 'rgba(255,214,10,0.8)';
@@ -377,7 +384,7 @@ function updateScoreboard() {
 let subTimer = null;
 function showSubtitle(speaker, text, big) {
   const el = $('subtitle');
-  el.innerHTML = `<small>${speaker === 'experte' ? 'Experte' : 'Reporter'}</small>${escapeHtml(text)}`;
+  el.innerHTML = `<small>${speaker === 'color' ? 'Analyst' : 'Play-by-play'}</small>${escapeHtml(text)}`;
   el.dataset.speaker = speaker;
   el.classList.toggle('big', big);
   el.classList.add('show');
@@ -392,7 +399,7 @@ function flashGoal() {
   el.classList.add('show');
 }
 
-const EVENT_LABELS = { goal: 'Tor', shot: 'Schuss', save: 'Parade', control: 'Kontrolle', lost: 'Ball weg', restart: 'Ball da', kickoff: 'Anpfiff', resume: 'Weiter', pause: 'Pause', correction: 'Korrektur' };
+const EVENT_LABELS = { goal: 'Goal', shot: 'Shot', save: 'Save', control: 'Control', lost: 'Ball lost', restart: 'Ball back', kickoff: 'Kickoff', resume: 'Resume', pause: 'Pause', correction: 'Correction' };
 const eventLog = [];
 function logEvents(events) {
   for (const e of events) {
@@ -420,56 +427,56 @@ function renderPanel() {
   const swatch = (c) => (c ? `<span class="swatch" style="background:${c.css}"></span>` : '');
   const views = {
     camera: `
-      <h2>Kicker-Kommentator</h2>
-      <p>Stell das Handy aufs Stativ, möglichst senkrecht über oder schräg über den Tisch, sodass das ganze Spielfeld zu sehen ist.</p>
+      <h2>Foosball Commentator</h2>
+      <p>Put the phone on a tripod, ideally straight above or at an angle over the table, so the whole playing field is visible.</p>
       <div class="row">
-        <button class="primary" data-act="camera">Kamera starten</button>
-        <label class="button">Video-Datei<input type="file" accept="video/*" data-act="file" hidden></label>
+        <button class="primary" data-act="camera">Start camera</button>
+        <label class="button">Video file<input type="file" accept="video/*" data-act="file" hidden></label>
       </div>`,
     corners: `
-      <h2>1 · Spielfeld markieren</h2>
-      <p>Tippe die <b>4 Ecken des Spielfelds</b> nacheinander an, im Uhrzeigersinn. Starte an einer Ecke neben dem Tor von <b>${escapeHtml(n[0])}</b> und tippe zuerst entlang der <b>Seitenbande</b>, nicht entlang der Torlinie.</p>
-      <p class="hint">Ecke ${calib.corners.length + 1} von 4</p>
-      <div class="row"><button data-act="reset-corners">Neu beginnen</button></div>`,
+      <h2>1 · Mark the field</h2>
+      <p>Tap the <b>4 corners of the playing field</b> one after another, clockwise. Start at a corner next to the goal of <b>${escapeHtml(n[0])}</b> and go along the <b>side wall</b> first, not along the goal line.</p>
+      <p class="hint">Corner ${calib.corners.length + 1} of 4</p>
+      <div class="row"><button data-act="reset-corners">Start over</button></div>`,
     ball: `
-      <h2>2 · Ball antippen</h2>
-      <p>Leg den Ball ruhig aufs Spielfeld und tippe ihn an. Die App merkt sich seine Farbe.</p>
-      <p class="hint">Farbige Bälle (orange, gelb) werden viel zuverlässiger erkannt als weiße.</p>
-      <div class="row"><button data-act="corners">Ecken neu setzen</button></div>`,
+      <h2>2 · Tap the ball</h2>
+      <p>Place the ball still on the field and tap it. The app remembers its colour.</p>
+      <p class="hint">Coloured balls (orange, yellow) are detected far more reliably than white ones.</p>
+      <div class="row"><button data-act="corners">Redo corners</button></div>`,
     teams: `
-      <h2>Team-Sticker (optional)</h2>
-      <p>Klebe farbige Sticker auf die Figuren eines Teams (z. B. Köpfe). Dann erkennt die App genauer, wer am Ball ist.</p>
+      <h2>Team stickers (optional)</h2>
+      <p>Put coloured stickers on one team's figures (on the heads, for example). The app then knows more precisely who has the ball.</p>
       <div class="row">
-        <button data-act="pick-team" data-team="0">${pickTeam === 0 ? 'Jetzt Sticker antippen…' : `Farbe ${escapeHtml(n[0])}`} ${swatch(calib.teams[0])}</button>
-        <button data-act="pick-team" data-team="1">${pickTeam === 1 ? 'Jetzt Sticker antippen…' : `Farbe ${escapeHtml(n[1])}`} ${swatch(calib.teams[1])}</button>
-        <button data-act="clear-teams">Entfernen</button>
-        <button class="primary" data-act="ready">Fertig</button>
+        <button data-act="pick-team" data-team="0">${pickTeam === 0 ? 'Now tap a sticker…' : `${escapeHtml(n[0])} colour`} ${swatch(calib.teams[0])}</button>
+        <button data-act="pick-team" data-team="1">${pickTeam === 1 ? 'Now tap a sticker…' : `${escapeHtml(n[1])} colour`} ${swatch(calib.teams[1])}</button>
+        <button data-act="clear-teams">Remove</button>
+        <button class="primary" data-act="ready">Done</button>
       </div>`,
     ready: `
-      <h2>Bereit</h2>
-      <p>Der gelbe Kreis sollte dem Ball folgen. Wenn nicht: Ball neu antippen oder die Toleranz in den Einstellungen ändern.</p>
+      <h2>Ready</h2>
+      <p>The yellow circle should follow the ball. If it doesn't, tap the ball again or adjust the tolerance.</p>
       <div class="row">
-        <button class="primary big" data-act="kickoff">Anpfiff!</button>
+        <button class="primary big" data-act="kickoff">Kick off!</button>
         <button data-act="ball">Ball ${swatch(calib.ball)}</button>
-        <button data-act="teams">Team-Sticker</button>
-        <button data-act="corners">Ecken</button>
-        <button data-act="swap">Seiten tauschen</button>
-        <button data-act="debug">${debug ? 'Maske aus' : 'Maske zeigen'}</button>
+        <button data-act="teams">Team stickers</button>
+        <button data-act="corners">Corners</button>
+        <button data-act="swap">Swap sides</button>
+        <button data-act="debug">${debug ? 'Hide mask' : 'Show mask'}</button>
       </div>`,
     live: `
-      ${gameOver ? `<h2>Spiel vorbei: ${escapeHtml(n[game.score[0] > game.score[1] ? 0 : 1])} gewinnt ${game.score[0]}:${game.score[1]}</h2>` : ''}
+      ${gameOver ? `<h2>Full time: ${escapeHtml(n[game.score[0] > game.score[1] ? 0 : 1])} win ${Math.max(...game.score)}–${Math.min(...game.score)}</h2>` : ''}
       <div class="row">
-        <button class="team0" data-act="goal" data-team="0">Tor ${escapeHtml(n[0])}</button>
-        <button class="team1" data-act="goal" data-team="1">Tor ${escapeHtml(n[1])}</button>
+        <button class="team0" data-act="goal" data-team="0">Goal ${escapeHtml(n[0])}</button>
+        <button class="team1" data-act="goal" data-team="1">Goal ${escapeHtml(n[1])}</button>
         <button data-act="undo" data-team="0">−1 ${escapeHtml(n[0])}</button>
         <button data-act="undo" data-team="1">−1 ${escapeHtml(n[1])}</button>
       </div>
       <div class="row">
-        ${gameOver ? '<button class="primary" data-act="new-game">Neues Spiel</button>' : `<button data-act="pause">${game.running ? 'Pause' : 'Weiter'}</button>`}
-        <button data-act="mute">${settings.voice ? 'Stumm' : 'Ton an'}</button>
-        <button data-act="debug">${debug ? 'Maske aus' : 'Maske'}</button>
-        <button data-act="new-game">Neues Spiel</button>
-        <button data-act="calibrate">Kalibrieren</button>
+        ${gameOver ? '<button class="primary" data-act="new-game">New match</button>' : `<button data-act="pause">${game.running ? 'Pause' : 'Resume'}</button>`}
+        <button data-act="mute">${settings.voice ? 'Mute' : 'Unmute'}</button>
+        <button data-act="debug">${debug ? 'Hide mask' : 'Mask'}</button>
+        ${gameOver ? '' : '<button data-act="new-game">New match</button>'}
+        <button data-act="calibrate">Calibrate</button>
       </div>
       <ul id="event-log"></ul>`,
   };
@@ -500,7 +507,7 @@ function act(name, el) {
     case 'swap':
       settings.swapped = !settings.swapped;
       game.cfg.swapped = settings.swapped;
-      save('kicker.settings', settings);
+      save(SETTINGS_KEY, settings);
       return;
     case 'debug':
       debug = !debug;
@@ -516,10 +523,10 @@ function act(name, el) {
     case 'mute':
       settings.voice = !settings.voice;
       director.setMuted(!settings.voice);
-      save('kicker.settings', settings);
+      save(SETTINGS_KEY, settings);
       return renderPanel();
     case 'new-game':
-      if (!confirm('Spielstand zurücksetzen?')) return;
+      if (!gameOver && !confirm('Reset the score?')) return;
       game.reset();
       director.reset();
       gameOver = false;
@@ -532,8 +539,9 @@ function act(name, el) {
 }
 
 async function kickoff() {
-  // Audio muss aus dem Klick heraus freigeschaltet werden
+  // Audio has to be unlocked from the click itself
   await audio.start();
+  await scriptReady;
   window.speechSynthesis?.speak(Object.assign(new SpeechSynthesisUtterance(' '), { volume: 0 }));
   director.configure();
   director.setMuted(!settings.voice);
@@ -542,7 +550,7 @@ async function kickoff() {
   setStep('live');
 }
 
-// ——— Einstellungen ———
+// ——— Settings ———
 function openSettings() {
   const f = $('settings-form');
   f.apiKey.value = settings.apiKey;
@@ -561,8 +569,8 @@ function openSettings() {
   f.tts.value = settings.tts;
   f.elevenKey.value = settings.elevenKey;
   f.elevenModel.value = settings.elevenModel;
-  f.voiceReporter.value = settings.voiceReporter;
-  f.voiceExperte.value = settings.voiceExperte;
+  f.voicePbp.value = settings.voicePbp;
+  f.voiceColor.value = settings.voiceColor;
   $('settings').showModal();
 }
 
@@ -570,7 +578,7 @@ function saveSettings() {
   const f = $('settings-form');
   settings.apiKey = f.apiKey.value.trim();
   settings.model = f.model.value;
-  settings.names = [f.name0.value.trim() || 'Heim', f.name1.value.trim() || 'Gast'];
+  settings.names = [f.name0.value.trim() || DEFAULTS.names[0], f.name1.value.trim() || DEFAULTS.names[1]];
   settings.tableLen = Number(f.tableLen.value) || DEFAULTS.tableLen;
   settings.tableWid = Number(f.tableWid.value) || DEFAULTS.tableWid;
   settings.shotKmh = Number(f.shotKmh.value) || DEFAULTS.shotKmh;
@@ -583,18 +591,18 @@ function saveSettings() {
   settings.tts = f.tts.value;
   settings.elevenKey = f.elevenKey.value.trim();
   settings.elevenModel = f.elevenModel.value.trim() || DEFAULTS.elevenModel;
-  settings.voiceReporter = f.voiceReporter.value.trim();
-  settings.voiceExperte = f.voiceExperte.value.trim();
+  settings.voicePbp = f.voicePbp.value.trim();
+  settings.voiceColor = f.voiceColor.value.trim();
   Object.assign(game.cfg, settings);
   director.llmDisabledUntil = 0;
   director.configure();
   if (game.running) director.warmUp(settings.names);
   if (audio.ctx && settings.voice) audio.setCrowd(settings.crowd);
-  save('kicker.settings', settings);
+  save(SETTINGS_KEY, settings);
   renderPanel();
 }
 
-// ——— Verdrahtung ———
+// ——— Wiring ———
 overlay.addEventListener('pointerdown', onTap);
 $('panel').addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act]');
@@ -607,8 +615,8 @@ $('open-settings').addEventListener('click', openSettings);
 $('settings-form').addEventListener('submit', (ev) => ev.submitter?.value === 'ok' && saveSettings());
 $('tol-live').addEventListener('input', (ev) => {
   settings.tol = Number(ev.target.value);
-  save('kicker.settings', settings);
+  save(SETTINGS_KEY, settings);
 });
 $('tol-live').value = settings.tol;
-director.onStatus(settings.apiKey ? 'KI bereit' : 'Offline-Vorlagen', settings.apiKey ? 'ok' : 'offline');
+director.onStatus(settings.apiKey ? 'AI ready' : 'Script only', settings.apiKey ? 'ok' : 'offline');
 renderPanel();

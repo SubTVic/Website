@@ -1,0 +1,1062 @@
+{
+  "version": 1,
+  "about": "Commentary script database. 'barks' are instant one-liners (only {team} and {opponent} slots, so they can be pre-generated as audio). 'lines' are follow-ups with any slot; the AI director picks and stitches them. pbp = play-by-play commentator, color = analyst. A line is only used when every slot in it has a value.",
+  "slots": {
+    "team": "team that acted (scored, shot, saved, has the ball)",
+    "opponent": "the other team",
+    "score": "spoken score, leader first: 'three-two', 'two-all', 'nil-nil'",
+    "score_line": "full spoken score: 'three-two to Red', 'all square at two-all'",
+    "team_goals": "goals of the acting team, in words",
+    "lead": "size of the lead, in words (only when someone leads)",
+    "leader": "leading team (only when someone leads)",
+    "trailer": "trailing team (only when someone leads)",
+    "trail_by": "how many goals the acting team still trails by, in words",
+    "deficit": "biggest deficit the acting team came back from, in words",
+    "streak": "goals in a row by the acting team, in words",
+    "drought": "time without a goal before this one: 'ninety seconds'",
+    "speed": "shot speed: '42 kilometres per hour'",
+    "shot_speed": "speed of the shot that was saved",
+    "record": "fastest shot of the match so far",
+    "goals_to_win": "goals needed to win the match, in words",
+    "saves_team": "saves by the acting team, in words",
+    "poss_leader": "team with more possession",
+    "poss_pct": "their possession share, in words",
+    "shots_leader": "team with more shots",
+    "shots_more": "their shot count, in words",
+    "shots_fewer": "the other team's shot count, in words",
+    "busy_team": "team whose defence has made the most saves",
+    "busy_saves": "their number of saves, in words",
+    "hot_team": "team that scored the last goals in a row",
+    "hot_streak": "how many in a row, in words",
+    "mp_team": "team that is one goal from winning"
+  },
+  "barks": {
+    "goal": {
+      "generic": {
+        "intensity": "ecstatic",
+        "lines": [
+          "Gooooal!",
+          "Goal! Goal! Goal!",
+          "And it's in!",
+          "It's in the back of the net!",
+          "What a finish!",
+          "Bang! It's in!",
+          "Oh, that's gone in!",
+          "Get in there!",
+          "Back of the net!",
+          "Goal for {team}!",
+          "{team} score!",
+          "{team} have found the net!",
+          "It's a goal! {team}!",
+          "In it goes!",
+          "Oh yes! That's a goal!",
+          "Thunderbolt! It's in!",
+          "Clinical! Goal!",
+          "Unstoppable!",
+          "No chance for the keeper!",
+          "Oh, that's a beauty!",
+          "And {team} strike!",
+          "What a hit!",
+          "There it is!",
+          "Through and in!",
+          "The net bulges!",
+          "{team} make it count!",
+          "The keeper is beaten!",
+          "Oh, what a strike from {team}!",
+          "Scored! {team}!",
+          "Yes! Yes! Yes!",
+          "Oh, you beauty!",
+          "And the ball is in the net!",
+          "Into the corner!",
+          "Buried!",
+          "Smashed in!",
+          "Slotted home!",
+          "What a goal!",
+          "Wow! Goal!",
+          "It's there!",
+          "Picked out the corner!"
+        ]
+      },
+      "equalizer": {
+        "intensity": "ecstatic",
+        "lines": [
+          "{team} are level!",
+          "All square!",
+          "Equaliser! {team} are back in it!",
+          "And {team} pull it back level!",
+          "Level! It's level!",
+          "{team} draw level!",
+          "The equaliser is in!",
+          "We are all square again!",
+          "{team} find the equaliser!",
+          "Honours even once more!"
+        ]
+      },
+      "go_ahead": {
+        "intensity": "ecstatic",
+        "lines": [
+          "{team} take the lead!",
+          "{team} are in front!",
+          "And {team} go ahead!",
+          "The lead belongs to {team}!",
+          "{team} edge in front!",
+          "Advantage {team}!",
+          "{team} nose ahead!",
+          "In front! {team} lead!"
+        ]
+      },
+      "again": {
+        "intensity": "ecstatic",
+        "lines": [
+          "{team} again!",
+          "Another one for {team}!",
+          "And again! {team}!",
+          "{team} are on fire!",
+          "They're at it again!",
+          "Here we go again! {team}!",
+          "{team} can't stop scoring!",
+          "Yet another for {team}!"
+        ]
+      },
+      "winner": {
+        "intensity": "ecstatic",
+        "lines": [
+          "That's the winner!",
+          "{team} win it!",
+          "Game over! {team} have done it!",
+          "It's all over! {team} take the match!",
+          "That's the one that wins it!",
+          "{team} are the kings of this table!",
+          "Victory for {team}!",
+          "And that seals it! {team} win!",
+          "{team} finish the job!",
+          "Game, set and match, {team}!"
+        ]
+      }
+    },
+    "shot": {
+      "generic": {
+        "intensity": "excited",
+        "lines": [
+          "Shot!",
+          "Strikes it!",
+          "Lets fly!",
+          "Here's the shot!",
+          "Pulls the trigger!",
+          "Takes aim!",
+          "{team} let fly!",
+          "{team} pull the trigger!",
+          "Shot on!",
+          "Fires away!",
+          "Takes the shot!",
+          "Oh, a strike!",
+          "{team} go for it!",
+          "Hammered!",
+          "Snap shot!",
+          "Quick release!",
+          "Drilled toward goal!",
+          "Away it goes!",
+          "{team} try their luck!",
+          "Shot from {team}!",
+          "Here it comes!",
+          "Hit and hope!",
+          "Goes for goal!",
+          "Unleashes it!",
+          "Strike!",
+          "A drive!",
+          "Lets it go!",
+          "Here's the effort!",
+          "Smashes it!",
+          "Quick strike!",
+          "A whip of the wrist!",
+          "And the shot comes in!",
+          "Shoots on sight!",
+          "Bang!",
+          "From close range!",
+          "Going for the corner!",
+          "Sharp shot!",
+          "There's the strike!",
+          "Tries the angle!",
+          "Low and hard!"
+        ]
+      },
+      "hard": {
+        "intensity": "excited",
+        "lines": [
+          "What a rocket!",
+          "Thunderous strike!",
+          "Absolute missile!",
+          "Oh, that was hit!",
+          "Ferocious!",
+          "Rocket from {team}!",
+          "Struck with venom!",
+          "Blink and you miss it!",
+          "Like a bullet!",
+          "Hit with real power!",
+          "Lightning quick!",
+          "Pure power!"
+        ]
+      },
+      "long_range": {
+        "intensity": "excited",
+        "lines": [
+          "From distance!",
+          "Long range effort!",
+          "From all the way back!",
+          "A shot from deep!",
+          "{team} try it from range!",
+          "From the five-bar!",
+          "Ambitious from {team}!",
+          "Speculative from range!",
+          "Straight from midfield!",
+          "From the back! Cheeky!"
+        ]
+      }
+    },
+    "save": {
+      "generic": {
+        "intensity": "excited",
+        "lines": [
+          "Saved!",
+          "Stopped!",
+          "Kept out!",
+          "Denied!",
+          "Blocked!",
+          "What a stop!",
+          "Not today!",
+          "Turned away!",
+          "Repelled!",
+          "{team} hold firm!",
+          "Great block!",
+          "{team} say no!",
+          "Shut the door!",
+          "Brilliant defending!",
+          "Refused!",
+          "Off the rod!",
+          "Nothing doing!",
+          "Kept out by {team}!",
+          "They stand firm!",
+          "Rebuffed!",
+          "Stopped in its tracks!",
+          "Heroic block!",
+          "The {team} wall holds!",
+          "Swatted away!",
+          "Smothered!",
+          "Nope!",
+          "Back it comes!",
+          "Shut out!",
+          "Firm defending!",
+          "Closed down!",
+          "Brilliant reactions!",
+          "Thwarted!",
+          "Held up!",
+          "Snuffed out!",
+          "No way through!",
+          "Read like a book!",
+          "Stonewalled!",
+          "Stuffed!",
+          "Not getting past that!",
+          "Stood firm!"
+        ]
+      },
+      "keeper": {
+        "intensity": "excited",
+        "lines": [
+          "Great save by the keeper!",
+          "The goalie says no!",
+          "What a save!",
+          "Keeper to the rescue!",
+          "The {team} keeper denies them!",
+          "Reflex save!",
+          "The goalie stands tall!",
+          "The keeper reads it!",
+          "Superb goalkeeping!",
+          "Wonderful save!",
+          "That's a fantastic stop by the goalie!"
+        ]
+      },
+      "defense": {
+        "intensity": "excited",
+        "lines": [
+          "Blocked by the two-bar!",
+          "The defence gets across!",
+          "Great block at the back!",
+          "The two-bar slams the door!",
+          "The defensive wall holds!",
+          "Cut out by the defence!",
+          "Stopped on the two-bar!",
+          "The backline does its job!",
+          "Brilliant block from the {team} defence!",
+          "Intercepted at the back!"
+        ]
+      },
+      "big": {
+        "intensity": "excited",
+        "lines": [
+          "How did that stay out?!",
+          "Incredible save!",
+          "World class stop!",
+          "Unbelievable block!",
+          "Save of the match!",
+          "That should have been a goal!",
+          "They somehow kept that out!",
+          "Astonishing reflexes!",
+          "Robbed! Absolutely robbed!",
+          "Stunning stop!"
+        ]
+      }
+    },
+    "danger": {
+      "generic": {
+        "intensity": "tense",
+        "lines": [
+          "Danger here!",
+          "On the three-bar now!",
+          "{team} are knocking on the door!",
+          "This could be the moment!",
+          "Pressure from {team}!",
+          "{team} are lining it up!",
+          "Set on the three-bar!",
+          "Watch this!",
+          "{team} in a great position!",
+          "The strikers have it!",
+          "Here comes the threat!",
+          "Big chance building!",
+          "{opponent} need to be careful!",
+          "The front line has it!",
+          "Lining up the shot!",
+          "Steady... steady...",
+          "Can {team} make it count?",
+          "{team} pinning it now!",
+          "Danger for {opponent}!",
+          "Breath held here!",
+          "{team} on the edge of the box!",
+          "Here's an opening!",
+          "Lining up now...",
+          "The three-bar is set!",
+          "{team} smell a chance!",
+          "Big moment coming!",
+          "Eyes on the three-bar!",
+          "{team} have it in a dangerous spot!",
+          "Pressure mounting!",
+          "Something's on here!",
+          "{opponent} under the cosh!",
+          "Can they find the gap?",
+          "Shot coming, surely!",
+          "Waiting, waiting...",
+          "{team} in shooting range!"
+        ]
+      }
+    },
+    "build": {
+      "generic": {
+        "intensity": "calm",
+        "lines": [
+          "{team} on the five-bar.",
+          "Patient build-up from {team}.",
+          "Working it through midfield.",
+          "{team} looking for an opening.",
+          "Probing in the middle.",
+          "Nice and composed from {team}.",
+          "Midfield control for {team}.",
+          "{team} keep the ball moving.",
+          "Looking for the pass forward.",
+          "Passing it along the five-bar.",
+          "Biding their time.",
+          "{team} dictating the tempo.",
+          "Measured stuff from {team}.",
+          "Through the middle now.",
+          "Waiting for the gap.",
+          "{team} switch the play.",
+          "Side to side on the five-bar.",
+          "No rush from {team}.",
+          "Possession for {team}.",
+          "{team} patient in the middle.",
+          "Recycling the ball.",
+          "Looking for the pass to the strikers.",
+          "Tidy from {team}.",
+          "Neat touches in midfield.",
+          "{team} control the middle."
+        ]
+      }
+    },
+    "defense": {
+      "generic": {
+        "intensity": "calm",
+        "lines": [
+          "{team} reset at the back.",
+          "Safe at the back.",
+          "The goalie has it.",
+          "Back to the two-bar.",
+          "{team} regroup.",
+          "Calm at the back for {team}.",
+          "Starting from the back.",
+          "Composure from {team}.",
+          "Recycled to the defence.",
+          "{team} looking to build again.",
+          "The keeper takes a breather.",
+          "Back to square one.",
+          "{team} clear their lines.",
+          "Back to the keeper.",
+          "Tidy at the back.",
+          "{team} keep it simple.",
+          "Out from the back.",
+          "The defence has it.",
+          "Patient from the back.",
+          "Reset."
+        ]
+      }
+    },
+    "lost": {
+      "generic": {
+        "intensity": "calm",
+        "lines": [
+          "Where's the ball?",
+          "Ball out of play.",
+          "We've lost sight of it.",
+          "It's gone off!",
+          "Out it goes.",
+          "Off the table!",
+          "A pause in play.",
+          "Hang on, where did that go?",
+          "The ball's gone missing.",
+          "Out of the field."
+        ]
+      }
+    },
+    "restart": {
+      "generic": {
+        "intensity": "tense",
+        "lines": [
+          "And we're back underway.",
+          "Ball's back in.",
+          "Play resumes.",
+          "Here we go again.",
+          "Back into the action.",
+          "The ball is live.",
+          "Let's get going again.",
+          "Back in business.",
+          "And off we go.",
+          "Game on.",
+          "Ball back in the middle.",
+          "Restart!"
+        ]
+      }
+    },
+    "correction": {
+      "generic": {
+        "intensity": "tense",
+        "lines": [
+          "Hold on, hold on!",
+          "Wait a moment!",
+          "No, it's been ruled out!",
+          "Correction coming in!",
+          "Hang on, we have a change!",
+          "Scratch that!"
+        ]
+      }
+    },
+    "resume": {
+      "generic": {
+        "intensity": "tense",
+        "lines": [
+          "We're back!",
+          "And play resumes!",
+          "Back to it!",
+          "Here we go again!",
+          "The break is over!",
+          "Back underway!"
+        ]
+      }
+    },
+    "pause": {
+      "generic": {
+        "intensity": "calm",
+        "lines": [
+          "A short break.",
+          "A quick pause.",
+          "Time out at the table.",
+          "We'll take a breather.",
+          "Play is paused.",
+          "A moment's rest."
+        ]
+      }
+    }
+  },
+  "lines": {
+    "goal": {
+      "opener": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} draw first blood! {score_line}.",
+          "The deadlock is broken! {team} lead {score}.",
+          "The first goal of the match goes to {team}!",
+          "{team} open the scoring, and what a way to do it!",
+          "And {team} are off the mark! {score_line}.",
+          "The first goal always matters, and it belongs to {team}.",
+          "{team} strike first! {opponent} have work to do.",
+          "{team} get the party started! {score_line}.",
+          "The opener! {team} lead, and the crowd loves it.",
+          "First blood to {team}, and {opponent} must respond!"
+        ],
+        "color": [
+          "Getting that first goal settles the nerves. Big moment for {team}.",
+          "That's what you want early on. Confidence for {team}.",
+          "{opponent} will be annoyed, they were just finding their rhythm.",
+          "The first goal changes the whole dynamic of a foosball match.",
+          "Lovely. Now {opponent} have to come out and chase this.",
+          "You can see the belief in {team} already.",
+          "That was coming. {team} had been building nicely.",
+          "The first goal is always the hardest. {team} have it."
+        ]
+      },
+      "equalizer": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} are level! {score_line}!",
+          "All square at {score}! What a response from {team}!",
+          "{team} haul themselves level! It's anybody's game!",
+          "We're level again! {score_line}.",
+          "{team} refuse to go away! {score}, and all to play for!",
+          "Parity restored! {team} make it {score}!",
+          "The equaliser! The {opponent} lead has evaporated!",
+          "Back on terms! {score_line}!",
+          "{team} draw level, and this match is wide open!",
+          "It's {score}, and the momentum has swung to {team}!"
+        ],
+        "color": [
+          "That's a massive goal. {opponent} had the upper hand, now it's even.",
+          "Great character from {team}. They just wouldn't give up.",
+          "Now the pressure shifts back onto {opponent}.",
+          "Level game, and you sense {team} have the momentum.",
+          "Psychologically, that's a huge blow for {opponent}.",
+          "That's what we call a response. Brilliant from {team}.",
+          "Everything to play for again. Who wants it more?",
+          "{opponent} let that lead slip. They'll be furious."
+        ]
+      },
+      "go_ahead": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} take the lead! {score_line}!",
+          "{team} go in front! {score}!",
+          "Advantage {team}! It's {score}!",
+          "{team} edge ahead, and {opponent} have to answer!",
+          "In front again! {team} lead {score}!",
+          "{team} grab the lead at {score}!",
+          "And now it's {team} who lead!",
+          "{team} nudge ahead, {score_line}."
+        ],
+        "color": [
+          "That's the goal they needed. Now can they hold on?",
+          "{team} have looked dangerous all game. Deserved.",
+          "Now {opponent} have to open up, and that leaves gaps.",
+          "Big goal. Leading a foosball match changes how you play.",
+          "You can't afford to switch off against {team}.",
+          "{opponent} will be kicking themselves after that."
+        ]
+      },
+      "extend_lead": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} extend the lead! {score_line}!",
+          "Another for {team}! It's {score}!",
+          "{team} pull further clear! The gap is {lead}!",
+          "That's {team_goals} for {team}, and {opponent} are struggling!",
+          "{team} pile on the misery! {score}!",
+          "The lead grows! {score_line}!",
+          "{team} stretch their advantage to {lead}!",
+          "{team} add another! This is getting away from {opponent}!",
+          "{score} now, and {team} are cruising!",
+          "{team} keep their foot on the gas! {score_line}."
+        ],
+        "color": [
+          "{opponent} need a reaction, and quickly.",
+          "This is turning into a masterclass from {team}.",
+          "Clinical. {team} are punishing every mistake.",
+          "{opponent} look rattled. They have to regroup.",
+          "A {lead} goal cushion. That's a comfortable place to be.",
+          "When you're on a roll, everything goes in.",
+          "I'd be calling a time-out if I were {opponent}.",
+          "That's ruthless from {team}. Absolutely ruthless."
+        ]
+      },
+      "pull_back": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} pull one back! {score_line}.",
+          "Game on! {team} cut the gap to {trail_by}!",
+          "{team} are fighting back! {score}!",
+          "A lifeline for {team}! {score_line}.",
+          "{team} respond! It's {score} now!",
+          "It's not over yet! {team} make it {score}!",
+          "{team} chip away at the lead! {score_line}.",
+          "Is this the start of a comeback? {team} make it {score}!"
+        ],
+        "color": [
+          "That could be important. {team} needed something.",
+          "A goal like that can turn the whole match.",
+          "{opponent} will be nervous now.",
+          "Still behind, but there's life in {team} yet.",
+          "You can feel the momentum shifting.",
+          "Keep that energy and this is far from over."
+        ]
+      },
+      "comeback": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "What a comeback! {team} were {deficit} down and now it's {score}!",
+          "From {deficit} behind to level! {team} are incredible!",
+          "{team} have done it! The comeback is complete, {score_line}!",
+          "Unbelievable scenes! {team} have clawed back {deficit} goals!",
+          "They were dead and buried, and now {team} are level!"
+        ],
+        "color": [
+          "That's why you never give up in foosball. Never.",
+          "{opponent} have completely lost their grip on this match.",
+          "Remarkable resilience from {team}.",
+          "I've seen some comebacks, but this one is special."
+        ]
+      },
+      "comeback_lead": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "From {deficit} down to in front! {team} lead {score}!",
+          "The turnaround is complete! {team} now lead!",
+          "{team} have turned this match on its head! {score_line}!",
+          "Incredible! {team} were {deficit} behind, and now they're ahead!"
+        ],
+        "color": [
+          "That's one of the great turnarounds. Who saw that coming?",
+          "{opponent} are in total shock.",
+          "Momentum is everything, and {team} have all of it."
+        ]
+      },
+      "streak": {
+        "intensity": "excited",
+        "pbp": [
+          "That's {streak} in a row for {team}!",
+          "{team} are unstoppable! {streak} straight goals!",
+          "{streak} unanswered goals! {team} are on fire!",
+          "Another one! The {team} run continues, {streak} in a row!",
+          "{team} just keep scoring! That's {streak} straight!",
+          "The {team} goal machine rolls on, {streak} on the bounce!"
+        ],
+        "color": [
+          "{opponent} have no answer right now.",
+          "When you're in this kind of rhythm, the goal looks enormous.",
+          "{opponent} need to break this run before it's too late.",
+          "{team} have found something, and {opponent} can't cope.",
+          "That's a hot streak. {streak} goals without reply."
+        ]
+      },
+      "quick": {
+        "intensity": "excited",
+        "pbp": [
+          "Straight from the restart! {team} score in seconds!",
+          "That was lightning fast! {team} strike straight away!",
+          "Barely back underway, and {team} have scored!",
+          "Blink and you missed it! {team} score immediately!",
+          "An instant reply from {team}!"
+        ],
+        "color": [
+          "{opponent} weren't even set. You can't switch off like that.",
+          "Concentration. That's what those first seconds are about.",
+          "Fastest goal I've seen in a while. {opponent} were asleep."
+        ]
+      },
+      "drought_over": {
+        "intensity": "excited",
+        "pbp": [
+          "Finally! After {drought} without a goal, {team} break through!",
+          "The wait is over! {team} end the drought!",
+          "At long last, a goal! {team} make it {score}!",
+          "{drought} of stalemate, and {team} finally find the net!"
+        ],
+        "color": [
+          "That was a long time coming. Patience rewarded.",
+          "Both defences had been on top. {team} finally cracked it.",
+          "Sometimes you just have to keep knocking on the door."
+        ]
+      },
+      "rocket": {
+        "intensity": "excited",
+        "pbp": [
+          "{speed}! What a strike from {team}!",
+          "That was clocked at {speed}! Unstoppable!",
+          "Pure power from {team}, {speed}!",
+          "An absolute rocket at {speed}!",
+          "{team} lash it in at {speed}!"
+        ],
+        "color": [
+          "At {speed} the keeper has no chance. None.",
+          "You can't defend that. It's simply too quick.",
+          "That's the sort of power that wins tournaments."
+        ]
+      },
+      "record_speed": {
+        "intensity": "excited",
+        "pbp": [
+          "A new record! {speed}, the fastest shot of the match!",
+          "That's the hardest shot we've seen today, {speed}!",
+          "Fastest of the game! {team} hit {speed}!"
+        ],
+        "color": [
+          "New speed record. Someone's been working on their wrist.",
+          "{speed}. That one will be talked about after the match."
+        ]
+      },
+      "match_point": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} are one goal away! {score_line}!",
+          "Match point for {team}! {score}!",
+          "One more and {team} win it!",
+          "{team} are on the brink! {score_line}!",
+          "Just one goal stands between {team} and victory!"
+        ],
+        "color": [
+          "Now it gets tense. Nerves of steel needed here.",
+          "{opponent} are staring at defeat. One mistake and it's over.",
+          "Closing out a match is the hardest thing in foosball.",
+          "This is where champions are made."
+        ]
+      },
+      "stay_alive": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} stay alive! {score_line}!",
+          "Not yet! {team} keep the dream going!",
+          "{team} refuse to lose! {score}!",
+          "{opponent} will have to wait! {team} hit back!"
+        ],
+        "color": [
+          "Huge nerve from {team} with their backs against the wall.",
+          "{opponent} had one hand on the trophy. Not anymore."
+        ]
+      },
+      "winner": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "{team} win it! {score_line}! What a match!",
+          "It's all over! {team} are victorious, {score}!",
+          "{team} have done it! Game over at {score}!",
+          "That's the winning goal! {team} take the match {score}!",
+          "Victory for {team}! {score} is the final score!",
+          "Game over! {team} triumph {score}!"
+        ],
+        "color": [
+          "Congratulations to {team}. Well deserved.",
+          "Hard luck, {opponent}, but on the day {team} were better.",
+          "That's a performance {team} can be proud of.",
+          "Great match, great atmosphere. {team} are worthy winners."
+        ]
+      },
+      "winner_close": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "{team} edge it! {score}, it could not have been closer!",
+          "By the narrowest of margins, {team} win it {score}!",
+          "What a finish to a thriller! {team} win {score}!"
+        ],
+        "color": [
+          "There was nothing between these two. {team} just held their nerve.",
+          "Fine margins decide matches like this. Heartbreak for {opponent}.",
+          "A classic. Either side could have won that."
+        ]
+      },
+      "winner_dominant": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "A dominant display! {team} win {score}!",
+          "{team} romp to victory, {score}!",
+          "Emphatic! {team} win it {score}!"
+        ],
+        "color": [
+          "That was one-way traffic. {team} were outstanding.",
+          "{opponent} will want to forget that one quickly.",
+          "Total control from start to finish."
+        ]
+      },
+      "winner_comeback": {
+        "intensity": "ecstatic",
+        "pbp": [
+          "From {deficit} down to victory! {team} complete the comeback!",
+          "What a turnaround! {team} were {deficit} behind, and they win it!"
+        ],
+        "color": [
+          "That's a comeback people will talk about for weeks.",
+          "{opponent} had it, and they let it slip. Remarkable."
+        ]
+      },
+      "generic": {
+        "intensity": "excited",
+        "pbp": [
+          "{team} score, and it's {score} now!",
+          "Goal {team}! {score_line}.",
+          "{team} find the net, {score_line}.",
+          "That's {team_goals} for {team}! {score_line}.",
+          "{team} make it {score}!",
+          "What a moment for {team}! {score_line}.",
+          "{team} have scored! {score_line}.",
+          "{team} put it away! It's {score}!",
+          "Into the net for {team}! {score_line}.",
+          "Another goal on the board, {score_line}.",
+          "{team} celebrate! {score_line}.",
+          "Superb from {team}! It's {score}.",
+          "That's in for {team}! {score_line}.",
+          "The scoreboard ticks over, {score_line}."
+        ],
+        "color": [
+          "Great finish. The keeper had no chance.",
+          "Well worked. {opponent} were too slow to react.",
+          "That's quality. Pure quality.",
+          "{opponent} need to tighten up at the back.",
+          "You give {team} space, and they punish you.",
+          "Lovely goal, that.",
+          "The finish was ice cold.",
+          "That's what happens when you leave gaps.",
+          "Textbook. Absolutely textbook.",
+          "The keeper was moving the wrong way.",
+          "{team} saw the opening and took it.",
+          "Lovely timing on that strike.",
+          "That one was all about the wrist snap.",
+          "{opponent} will be looking at each other after that."
+        ]
+      }
+    },
+    "save": {
+      "generic": {
+        "intensity": "tense",
+        "pbp": [
+          "{team} survive the danger.",
+          "Kept out by {team}, and the match goes on.",
+          "{team} hold their ground."
+        ],
+        "color": [
+          "Great anticipation. Read it all the way.",
+          "That's what solid defending looks like.",
+          "Perfect positioning on the rod there.",
+          "Quick hands. Brilliant reaction.",
+          "{team} were ready for that one.",
+          "You won't see many better blocks than that.",
+          "Defending is all about patience, and {team} showed it.",
+          "They covered the angle perfectly.",
+          "The goalie was set before the shot even came.",
+          "Good communication between the keeper and the two-bar.",
+          "They took the angle away completely.",
+          "That's years of practice right there.",
+          "Composed. No panic at all.",
+          "Sometimes defending is just about staying still.",
+          "Reading the shooter's wrists, that's the secret.",
+          "Big credit to the backline there."
+        ]
+      },
+      "big": {
+        "intensity": "excited",
+        "pbp": [
+          "{shot_speed}, and somehow it's stopped!",
+          "An unbelievable stop by {team}!"
+        ],
+        "color": [
+          "That shot was flying at {shot_speed}, and they still got a rod on it!",
+          "Incredible reflexes. That was at {shot_speed}.",
+          "I honestly don't know how they kept that out.",
+          "That might be the save of the match."
+        ]
+      },
+      "busy": {
+        "intensity": "tense",
+        "pbp": [
+          "Another save for {team}, that's {saves_team} today!"
+        ],
+        "color": [
+          "That's {saves_team} saves now for {team}. The defence is on fire.",
+          "The {team} backline is having an outstanding game. {saves_team} saves already.",
+          "The {team} keeper is keeping them in this match."
+        ]
+      }
+    },
+    "kickoff": {
+      "opening": {
+        "intensity": "excited",
+        "pbp": [
+          "Welcome to the table! It's {team} against {opponent}, first to {goals_to_win}!",
+          "Good evening, and welcome! {team} versus {opponent}, and the ball is in play!",
+          "Here we go! {team} take on {opponent}, first to {goals_to_win} wins!",
+          "The atmosphere is electric! {team} against {opponent}, let's play!",
+          "Welcome along, everybody! It's {team} and {opponent}, and we're underway!",
+          "Rods at the ready! {team} versus {opponent}, first to {goals_to_win}!"
+        ],
+        "color": [
+          "I'm expecting a tight one. Both sides know what's at stake.",
+          "The key today: control the five-bar and stay patient on the three-bar.",
+          "The team that keeps their nerve on the rods will win this.",
+          "Fast hands, cool heads. That's what this one is about.",
+          "First to {goals_to_win}. It's a sprint, not a marathon.",
+          "Watch the midfield. Whoever controls the five-bar controls the game."
+        ]
+      }
+    },
+    "analysis": {
+      "early": {
+        "intensity": "calm",
+        "pbp": [
+          "Still nil-nil here. Who will break the deadlock?",
+          "We're still waiting for that first goal."
+        ],
+        "color": [
+          "Still goalless. Both sides are feeling each other out.",
+          "A cagey start. Nobody wants to make the first mistake.",
+          "No goals yet, but it's only a matter of time.",
+          "Tight at the back on both sides so far."
+        ]
+      },
+      "level": {
+        "intensity": "calm",
+        "pbp": [
+          "{score}, and all to play for.",
+          "Honours even at {score}."
+        ],
+        "color": [
+          "Level at {score}. Nothing to separate these two.",
+          "It's even, and it's tense. One mistake could decide this.",
+          "All square. This is anyone's game."
+        ]
+      },
+      "leading": {
+        "intensity": "calm",
+        "pbp": [
+          "{leader} lead {score}.",
+          "It's {score} to {leader}."
+        ],
+        "color": [
+          "{leader} lead by {lead}, but {trailer} are still in this.",
+          "{leader} are in front at {score}. Can {trailer} find a way back?",
+          "{trailer} need to be braver going forward.",
+          "{leader} are managing the game nicely."
+        ]
+      },
+      "big_lead": {
+        "intensity": "calm",
+        "pbp": [
+          "{leader} are cruising at {score}."
+        ],
+        "color": [
+          "{trailer} are running out of ideas, {lead} goals down.",
+          "This is a big hill to climb for {trailer}.",
+          "{leader} are in total control right now.",
+          "{trailer} need something special, and soon."
+        ]
+      },
+      "possession": {
+        "intensity": "calm",
+        "color": [
+          "{poss_leader} have had {poss_pct} percent of the ball.",
+          "{poss_leader} are dominating possession, {poss_pct} percent.",
+          "Possession is with {poss_leader}, but possession doesn't win matches. Goals do.",
+          "{poss_leader} are controlling the ball, {poss_pct} percent so far."
+        ]
+      },
+      "shots": {
+        "intensity": "calm",
+        "color": [
+          "{shots_leader} have had {shots_more} shots to {shots_fewer}.",
+          "The shot count: {shots_leader} with {shots_more}, the other side with {shots_fewer}.",
+          "{shots_leader} are taking more shots. That pressure tells eventually."
+        ]
+      },
+      "keeper_busy": {
+        "intensity": "calm",
+        "color": [
+          "The {busy_team} defence has made {busy_saves} saves already. Busy day.",
+          "Credit to the {busy_team} keeper. {busy_saves} saves and counting."
+        ]
+      },
+      "record": {
+        "intensity": "calm",
+        "color": [
+          "The fastest shot so far: {record}. Can anyone beat it?",
+          "We had a shot at {record} earlier. That's serious power."
+        ]
+      },
+      "drought": {
+        "intensity": "calm",
+        "color": [
+          "It's been {drought} since the last goal. The defences are on top.",
+          "A long spell without a goal. Somebody needs to take a risk."
+        ]
+      },
+      "momentum": {
+        "intensity": "tense",
+        "color": [
+          "{hot_team} have scored the last {hot_streak}. The momentum is theirs.",
+          "{hot_team} are on a run, {hot_streak} in a row."
+        ]
+      },
+      "match_point": {
+        "intensity": "tense",
+        "pbp": [
+          "Match point for {mp_team}!"
+        ],
+        "color": [
+          "{mp_team} are one goal from victory. Huge pressure now.",
+          "Match point {mp_team}. Every touch matters."
+        ]
+      },
+      "general": {
+        "intensity": "calm",
+        "pbp": [
+          "What a contest we've got on our hands.",
+          "Plenty of energy around the table.",
+          "The tension is building around the table.",
+          "Both teams fully focused here.",
+          "Back and forth we go.",
+          "Nobody wants to blink first."
+        ],
+        "color": [
+          "Remember, spinning the rods is frowned upon. Not that anyone here would.",
+          "In foosball, the wrists do all the work.",
+          "The five-bar is where matches are won and lost.",
+          "Great foosball is all about patience on the three-bar.",
+          "The best players make the table look slow.",
+          "A good pass from the five-bar to the three-bar is pure art.",
+          "You can hear the rods rattling. That's a proper match.",
+          "The crowd is right into this one.",
+          "Defence wins championships. Even at the table.",
+          "Keep your eyes on the ball, not your opponent's hands.",
+          "Some people say foosball is a game of inches. I say millimetres.",
+          "I love the sound of a ball hitting the back of the goal.",
+          "Every touch is being cheered now.",
+          "You need soft hands on the five-bar and quick hands on the three-bar.",
+          "The secret is to stay relaxed on the rods.",
+          "It's chess at high speed, this game.",
+          "The best defenders make it look easy.",
+          "A good keeper can win you a match on their own.",
+          "Watch the wrists. That's where the shot comes from.",
+          "There's a lot of tactics in this game people don't see.",
+          "The rhythm of a match can change in a second.",
+          "Small table, big drama.",
+          "Never underestimate a patient opponent.",
+          "Both sides are clearly well practised.",
+          "You can't fake it at the table. It's all skill.",
+          "Composure is everything in the last few goals.",
+          "I'd love to see a bit more risk from both sides."
+        ]
+      }
+    },
+    "correction": {
+      "generic": {
+        "intensity": "calm",
+        "pbp": [
+          "That goal has been taken off. It's {score_line}.",
+          "A correction to the scoreline, it's {score} now.",
+          "The goal for {team} doesn't stand. {score_line}."
+        ],
+        "color": [
+          "Good to get it right. Fairness first."
+        ]
+      }
+    }
+  }
+}

@@ -1,14 +1,14 @@
-// Stadion-Atmosphäre und Audio-Wiedergabe über die Web Audio API.
-// Das Publikum wird synthetisch erzeugt (gefiltertes Rauschen), es braucht keine Sounddateien.
+// Stadium atmosphere and audio playback via the Web Audio API.
+// The crowd is synthesized (filtered noise), so no sound files are needed.
 
 export class AudioEngine {
   constructor() {
     this.ctx = null;
-    this.crowdLevel = 0.5; // Lautstärke-Einstellung 0 … 1
+    this.crowdLevel = 0.5; // volume setting 0 … 1
     this.ducked = false;
   }
 
-  // Muss aus einem Klick heraus aufgerufen werden (Autoplay-Sperre der Browser)
+  // Must be called from a click (browser autoplay policy)
   async start() {
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -25,7 +25,7 @@ export class AudioEngine {
     const ctx = this.ctx;
     const noise = ctx.createBuffer(2, ctx.sampleRate * 4, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
-      // Rosa Rauschen (Paul-Kellet-Filter) klingt wärmer als weißes
+      // Pink noise (Paul Kellet filter) sounds warmer than white noise
       const d = noise.getChannelData(ch);
       let b0 = 0, b1 = 0, b2 = 0;
       for (let i = 0; i < d.length; i++) {
@@ -41,7 +41,7 @@ export class AudioEngine {
     this.master.gain.value = 0;
     this.master.connect(ctx.destination);
 
-    // Grundrauschen der Menge: mehrere „Stimmbänder“, die sich langsam bewegen
+    // Crowd murmur: several slowly moving 'voice bands'
     this.murmur = ctx.createGain();
     this.murmur.gain.value = 0.35;
     this.murmur.connect(this.master);
@@ -66,7 +66,7 @@ export class AudioEngine {
       lfo.start();
     }
 
-    // Reaktionsschicht: „Oooh“, Jubel, Torschrei
+    // Reaction layer: 'oooh', cheering, goal roar
     const src = ctx.createBufferSource();
     src.buffer = noise;
     src.loop = true;
@@ -90,7 +90,7 @@ export class AudioEngine {
     this.master.gain.setTargetAtTime(target, this.ctx.currentTime, 0.25);
   }
 
-  // Leiser stellen, während kommentiert wird
+  // Lower the crowd while commentary is playing
   duck(on) {
     if (!this.ctx || this.ducked === on) return;
     this.ducked = on;
@@ -112,17 +112,17 @@ export class AudioEngine {
     f.exponentialRampToValueAtTime(freqTo, t + attack + hold + release);
   }
 
-  // Spannung bei einem Schuss
+  // Rising tension on a shot
   rise() {
     this.swell({ peak: 0.7, attack: 0.25, hold: 0.3, release: 1.2, freqFrom: 700, freqTo: 1100 });
   }
 
-  // Enttäuschtes/beeindrucktes „Oooh“ nach einer Parade (Tonhöhe fällt)
+  // Impressed 'oooh' after a save (falling pitch)
   ooh() {
     this.swell({ peak: 0.9, attack: 0.15, hold: 0.5, release: 1.6, freqFrom: 1100, freqTo: 450 });
   }
 
-  // Torjubel
+  // Goal roar
   roar() {
     this.swell({ peak: 1.6, attack: 0.12, hold: 2.6, release: 4.5, freqFrom: 1400, freqTo: 900 });
   }
@@ -156,7 +156,7 @@ export class AudioEngine {
     return this.ctx.decodeAudioData(arrayBuffer);
   }
 
-  // Spielt einen dekodierten Sprach-Clip; liefert { done, stop }
+  // Plays a decoded speech clip; returns { done, stop }
   play(buffer) {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;

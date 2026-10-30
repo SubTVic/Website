@@ -72,7 +72,7 @@ body:not(.has-video) .status { display: none; }
 }
 #subtitle.show { opacity: 1; transform: translate(-50%, 0); }
 #subtitle small { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
-#subtitle[data-speaker="experte"] small { color: #7dd3fc; }
+#subtitle[data-speaker="color"] small { color: #7dd3fc; }
 #subtitle.big { font-size: 22px; font-weight: 700; color: var(--accent); }
 
 #goal-flash {

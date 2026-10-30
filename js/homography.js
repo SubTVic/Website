@@ -1,9 +1,9 @@
-// Perspektiv-Transformation (Homographie) zwischen Kamerabild und Spielfeld.
-// Spielfeld-Koordinaten: u = 0 (Heim-Tor) … 1 (Gast-Tor), v = 0 … 1 (Bande zu Bande).
+// Perspective transform (homography) between camera image and playing field.
+// Field coordinates: u = 0 (left team's goal) … 1 (right team's goal), v = 0 … 1 (wall to wall).
 
 export const FIELD_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
 
-// Löst H so, dass dst ≈ H · src für vier Punktpaare (DLT mit h33 = 1).
+// Solves H so that dst ≈ H · src for four point pairs (DLT with h33 = 1).
 export function computeHomography(src, dst) {
   const A = [];
   const b = [];
@@ -25,7 +25,7 @@ export function applyH(H, x, y) {
   return [(H[0] * x + H[1] * y + H[2]) / w, (H[3] * x + H[4] * y + H[5]) / w];
 }
 
-// Gauß-Elimination mit Pivotisierung.
+// Gaussian elimination with pivoting.
 function solve(A, b) {
   const n = b.length;
   const M = A.map((row, i) => [...row, b[i]]);

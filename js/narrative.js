@@ -1,15 +1,18 @@
-// Story-Gedächtnis: erkennt die Geschichten eines Spiels, so wie ein echter
-// Kommentator sie im Kopf hat (Ausgleich, Führungswechsel, Aufholjagd, Serie …).
+import { words, spokenDuration } from './script.js';
+
+// Story memory: tracks the storylines of a match the way a real commentator does
+// (equaliser, comeback, streaks, match point …) and maps them to script situations.
 
 export class Narrative {
-  constructor(goalsToWin) {
+  constructor(goalsToWin, hardKmh = 36) {
     this.goalsToWin = goalsToWin;
+    this.hardKmh = hardKmh;
     this.reset();
   }
 
   reset() {
     this.goals = []; // { team, t, score }
-    this.maxDeficit = [0, 0]; // größter Rückstand je Team
+    this.maxDeficit = [0, 0]; // biggest deficit each team has faced
     this.lastGoalT = 0;
     this.lastRestartT = 0;
     this.fastest = 0;
@@ -20,46 +23,61 @@ export class Narrative {
     this.lastRestartT = t;
   }
 
-  // Liefert Story-Tags für ein Tor (t = Spielzeit in Sekunden)
+  // Returns the goal situations (most interesting first), the bark situation and story facts
   onGoal(team, score, t, kmh) {
     const before = [...score];
     before[team]--;
-    const tags = [];
     const diffBefore = before[team] - before[1 - team];
     const diffAfter = score[team] - score[1 - team];
-
-    if (score[0] + score[1] === 1) tags.push('erstes Tor des Spiels');
-    if (diffAfter === 0) tags.push('Ausgleich');
-    else if (diffBefore === 0) tags.push(score[team] + score[1 - team] === 1 ? 'Führung' : 'erneute Führung');
-    else if (diffBefore < 0 && diffAfter > 0) tags.push('Führungswechsel');
-    else if (diffBefore > 0) tags.push(`baut Führung aus auf +${diffAfter}`);
-    else if (diffAfter < 0) tags.push(`Anschlusstreffer, noch ${-diffAfter} hinten`);
-
-    const deficit = Math.max(this.maxDeficit[team], 0);
-    if (deficit >= 2 && diffAfter >= 0) tags.push(`Aufholjagd nach ${deficit} Toren Rückstand`);
-
+    const deficit = this.maxDeficit[team];
     const streak = this.streak(team) + 1;
-    if (streak >= 3) tags.push(`${streak}. Tor in Folge`);
-    if (this.goals.length && t - this.lastGoalT > 90) tags.push(`Torflaute nach ${Math.round(t - this.lastGoalT)} Sekunden beendet`);
-    if (t - this.lastRestartT < 6 && this.goals.length) tags.push('Blitztor direkt nach dem Anstoß');
-    if (kmh && kmh > this.fastest && kmh > 15) {
-      if (this.fastest > 0) tags.push(`neuer Geschwindigkeitsrekord: ${kmh} km/h`);
-      this.fastest = kmh;
-    }
+    const drought = t - this.lastGoalT;
+    const g = this.goalsToWin;
+    const situations = [];
 
-    if (score[team] >= this.goalsToWin) {
-      tags.push('SIEGTOR, Spiel vorbei');
+    if (score[team] >= g) {
       this.over = true;
-    } else if (this.goalsToWin > 1) {
-      if (score[team] === this.goalsToWin - 1) tags.push(`Matchball für dieses Team (noch 1 Tor bis ${this.goalsToWin})`);
-      if (score[1 - team] === this.goalsToWin - 1) tags.push('Matchball abgewehrt, der Gegner bleibt bei einem Tor vor dem Sieg');
+      if (deficit >= 2) situations.push('winner_comeback');
+      if (diffAfter === 1) situations.push('winner_close');
+      if (diffAfter >= Math.max(3, Math.ceil(g / 2))) situations.push('winner_dominant');
+      situations.push('winner');
+    } else {
+      if (deficit >= 2 && diffBefore === 0 && diffAfter > 0) situations.push('comeback_lead');
+      if (deficit >= 2 && diffAfter === 0) situations.push('comeback');
+      if (g > 1 && score[1 - team] === g - 1) situations.push('stay_alive');
+      if (g > 1 && score[team] === g - 1) situations.push('match_point');
+    }
+    if (streak >= 3) situations.push('streak');
+    if (this.goals.length && t - this.lastRestartT < 6) situations.push('quick');
+    if (kmh && this.fastest > 0 && kmh > this.fastest) situations.push('record_speed');
+    if (drought > 90) situations.push('drought_over');
+    if (kmh && kmh >= this.hardKmh) situations.push('rocket');
+    if (score[0] + score[1] === 1) situations.push('opener');
+    else if (diffAfter === 0) situations.push('equalizer');
+    else if (diffBefore === 0) situations.push('go_ahead');
+    else if (diffBefore > 0) situations.push('extend_lead');
+    else situations.push('pull_back');
+    situations.push('generic');
+
+    let bark = 'generic';
+    if (this.over) bark = 'winner';
+    else if (Math.random() < 0.6) {
+      if (diffAfter === 0 && score[team] > 0) bark = 'equalizer';
+      else if (streak >= 2) bark = 'again';
+      else if (diffBefore === 0) bark = 'go_ahead';
     }
 
+    if (kmh) this.fastest = Math.max(this.fastest, kmh);
     this.goals.push({ team, t, score: [...score] });
     this.lastGoalT = t;
     this.lastRestartT = t;
     for (const k of [0, 1]) this.maxDeficit[k] = Math.max(this.maxDeficit[k], score[1 - k] - score[k]);
-    return tags;
+
+    return {
+      situations,
+      bark,
+      story: { deficit: deficit >= 2 ? deficit : null, streak: streak >= 2 ? streak : null, drought: drought > 90 ? drought : null, kmh: kmh || null },
+    };
   }
 
   onCorrection() {
@@ -73,18 +91,34 @@ export class Narrative {
     return n;
   }
 
-  // Kurze Lage des Spiels für Füll- und Expertenkommentare
-  situation(score, names, t) {
-    const out = [];
+  // Situations for a quiet spell, most interesting first, plus their extra slots
+  analysis(score, names, snapshot, t) {
+    const situations = [];
+    const extra = {};
     const [a, b] = score;
-    if (a === b) out.push(a === 0 ? 'Noch keine Tore' : 'Unentschieden');
-    else out.push(`${names[a > b ? 0 : 1]} führt mit ${Math.abs(a - b)}`);
-    for (const k of [0, 1]) {
-      if (this.goalsToWin > 1 && score[k] === this.goalsToWin - 1 && !this.over) out.push(`${names[k]} hat Matchball`);
-      const s = this.streak(k);
-      if (s >= 2 && this.goals.at(-1)?.team === k) out.push(`${names[k]} hat die letzten ${s} Tore geschossen`);
+    const g = this.goalsToWin;
+    const mp = [0, 1].find((k) => g > 1 && score[k] === g - 1);
+    if (mp !== undefined && !this.over) {
+      situations.push('match_point');
+      extra.mp_team = names[mp];
     }
-    if (this.goals.length && t - this.lastGoalT > 45) out.push(`seit ${Math.round(t - this.lastGoalT)} Sekunden kein Tor`);
-    return out;
+    const last = this.goals.at(-1);
+    if (last && this.streak(last.team) >= 2) {
+      situations.push('momentum');
+      extra.hot_team = names[last.team];
+      extra.hot_streak = words(this.streak(last.team));
+    }
+    if (Math.abs(a - b) >= 3) situations.push('big_lead');
+    if (a === 0 && b === 0) situations.push('early');
+    else if (a === b) situations.push('level');
+    else situations.push('leading');
+    situations.push('keeper_busy', 'shots', 'possession', 'record');
+    const sinceGoal = t - this.lastGoalT;
+    if (this.goals.length && sinceGoal > 45) {
+      situations.push('drought');
+      extra.drought = spokenDuration(sinceGoal);
+    }
+    situations.push('general');
+    return { situations, extra };
   }
 }

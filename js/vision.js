@@ -1,9 +1,9 @@
-// Farbbasierte Erkennung: findet zusammenhängende Pixel-Flecken (Blobs) einer
-// Zielfarbe innerhalb des kalibrierten Spielfelds.
+// Colour-based detection: finds connected pixel blobs of a target colour
+// inside the calibrated playing field.
 
 import { applyH } from './homography.js';
 
-const FIELD_MARGIN = 0.06; // etwas über den Rand hinaus, damit Bälle vor dem Tor sichtbar bleiben
+const FIELD_MARGIN = 0.06; // slightly beyond the edge so balls in front of the goal stay visible
 
 export function rgbToHsv(r, g, b) {
   const max = Math.max(r, g, b);
@@ -20,11 +20,11 @@ export function rgbToHsv(r, g, b) {
   return [h, max === 0 ? 0 : d / max, max / 255];
 }
 
-// Erzeugt eine Prüffunktion (h, s, v) -> bool für eine angetippte Farbe.
-// tol: 5 (streng) … 50 (großzügig)
+// Builds a test function (h, s, v) -> bool for a tapped colour.
+// tol: 5 (strict) … 50 (generous)
 export function makeMatcher(color, tol) {
   if (color.s < 0.22) {
-    // Weiß/hellgrau: geringe Sättigung, hohe Helligkeit
+    // White/light grey: low saturation, high brightness
     const maxS = 0.18 + tol / 250;
     const minV = Math.max(0.45, color.v - 0.12 - tol / 250);
     return (h, s, v) => s < maxS && v > minV;
@@ -43,7 +43,7 @@ export class Tracker {
     this.h = 0;
   }
 
-  // H: Videopixel -> Spielfeld; scale: Verarbeitungspixel pro Videopixel
+  // H: video pixels -> field; scale: processing pixels per video pixel
   configure(w, h, H, scale) {
     this.w = w;
     this.h = h;
@@ -65,7 +65,7 @@ export class Tracker {
     }
   }
 
-  // specs: [{ match, minArea }] — liefert pro Spec eine Liste von Blobs
+  // specs: [{ match, minArea }] — returns a list of blobs per spec
   process(data, specs) {
     const { w, h, inField, hsv } = this;
     const n = w * h;
@@ -128,7 +128,7 @@ export class Tracker {
         u,
         v,
         area: count,
-        // 1 = runder, gefüllter Fleck; Streifen und Ränder liegen deutlich darunter
+        // 1 = round, filled blob; stripes and edges score much lower
         roundness: (count / (bw * bh)) * (Math.min(bw, bh) / Math.max(bw, bh)),
       });
     }
@@ -136,7 +136,7 @@ export class Tracker {
   }
 }
 
-// Durchschnittsfarbe eines kleinen Bereichs (für das Antippen von Ball/Stickern)
+// Average colour of a small area (for tapping the ball/stickers)
 export function sampleColor(data, w, h, cx, cy, radius = 2) {
   let r = 0, g = 0, b = 0, n = 0;
   for (let y = Math.max(0, cy - radius); y <= Math.min(h - 1, cy + radius); y++) {

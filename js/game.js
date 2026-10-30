@@ -1,24 +1,24 @@
-// Spiel-Logik: macht aus Ballpositionen Ereignisse (Tor, Schuss, Parade, Ballkontrolle …)
-// und führt Spielstand und Statistik.
+// Game logic: turns ball positions into events (goal, shot, save, ball control …)
+// and keeps score and stats.
 
-// Stangen von u = 0 (linkes Tor) nach u = 1 (rechtes Tor).
-// side 0 = Team, das das linke Tor verteidigt.
+// Rods from u = 0 (left goal) to u = 1 (right goal).
+// side 0 = team defending the left goal.
 const RODS = [
-  { side: 0, role: 'Torwart' },
-  { side: 0, role: 'Abwehr' },
-  { side: 1, role: 'Sturm' },
-  { side: 0, role: 'Mittelfeld' },
-  { side: 1, role: 'Mittelfeld' },
-  { side: 0, role: 'Sturm' },
-  { side: 1, role: 'Abwehr' },
-  { side: 1, role: 'Torwart' },
+  { side: 0, role: 'goalie' },
+  { side: 0, role: 'defence' },
+  { side: 1, role: 'attack' },
+  { side: 0, role: 'midfield' },
+  { side: 1, role: 'midfield' },
+  { side: 0, role: 'attack' },
+  { side: 1, role: 'defence' },
+  { side: 1, role: 'goalie' },
 ];
 export const ROD_U = RODS.map((_, i) => (i + 0.5) / RODS.length);
 
-const GOAL_MOUTH = [0.25, 0.75]; // v-Bereich der Toröffnung
-const GOAL_ZONE = 0.08; // so nah an der Torlinie muss der Ball zuletzt gewesen sein
-const LOST_AFTER = 2.5; // s ohne Ball -> „Ball nicht zu sehen“
-const MAX_KMH = 110; // schnellere Sprünge sind Fehldetektionen
+const GOAL_MOUTH = [0.25, 0.75]; // v range of the goal mouth
+const GOAL_ZONE = 0.08; // how close to the goal line the ball must have last been seen
+const LOST_AFTER = 2.5; // seconds without the ball -> 'ball lost'
+const MAX_KMH = 110; // faster jumps are false detections
 
 export class Game {
   constructor(cfg) {
@@ -34,15 +34,15 @@ export class Game {
     this.running = false;
     this.elapsed = 0;
     this.lastT = null;
-    this.last = null; // letzte Ballbeobachtung
+    this.last = null; // last ball observation
     this.state = 'play'; // play | goal | lost
-    this.shot = null; // laufender Schuss (für Parade-Erkennung)
+    this.shot = null; // shot in progress (for save detection)
     this.lastShotT = -1;
     this.ctrl = { team: null, role: null, since: 0, announced: null, announcedT: -10 };
     this.speedKmh = 0;
   }
 
-  // Welches Team verteidigt das linke Tor?
+  // Which team defends the left goal?
   leftTeam() {
     return this.cfg.swapped ? 1 : 0;
   }
@@ -77,7 +77,7 @@ export class Game {
     return { type: 'correction', team, score: [...this.score] };
   }
 
-  // ball: { u, v } oder null; teamBlobs: [[{u,v}], [{u,v}]]
+  // ball: { u, v } or null; teamBlobs: [[{u,v}], [{u,v}]]
   update(t, ball, teamBlobs) {
     const events = [];
     if (!this.running) {
@@ -89,7 +89,7 @@ export class Game {
     this.elapsed += dt;
 
     if (ball && this.last && this.state === 'play') {
-      // Plausibilitätsprüfung gegen Sprünge
+      // Plausibility check against jumps
       const gap = t - this.last.t;
       const dist = Math.hypot((ball.u - this.last.u) * this.cfg.tableLen, (ball.v - this.last.v) * this.cfg.tableWid);
       if (gap < 0.25 && (dist / gap) * 0.036 > MAX_KMH) ball = null;
@@ -105,7 +105,7 @@ export class Game {
   seeBall(t, dt, ball, teamBlobs, events) {
     const { tableLen: L, tableWid: W } = this.cfg;
     if (this.state !== 'play') {
-      // Ball nach Tor nicht sofort wieder zählen (er rollt evtl. noch in der Torschale)
+      // Ignore the ball right after a goal (it may still be rolling in the goal tray)
       if (this.state === 'goal' && t - this.goalT < 1.5) return;
       if (this.state === 'goal' && (ball.u < 0.1 || ball.u > 0.9)) return;
       events.push({ type: 'restart' });
@@ -117,7 +117,7 @@ export class Game {
     this.hist = this.hist.filter((p) => t - p.t < 0.4);
     this.trail.push({ t, u: ball.u, v: ball.v });
 
-    // Geschwindigkeit über die letzten ≥ 50 ms (kurz genug, damit schnelle Schüsse nicht verwässern)
+    // Speed over the last >= 50 ms (short enough not to blur fast shots)
     let vx = 0, vy = 0;
     const cur = this.hist[this.hist.length - 1];
     let ref = this.hist[0];
@@ -137,7 +137,7 @@ export class Game {
 
     this.stats.half[ball.u < 0.5 ? 0 : 1] += dt;
 
-    // Wer ist am Ball? Stange in der Nähe, Team-Sticker gehen vor.
+    // Who has the ball? Nearest rod; team stickers take precedence.
     const rod = this.rodAt(ball.u);
     let team = rod.team;
     const near = nearestTeam(ball, teamBlobs, 0.07);
@@ -151,13 +151,13 @@ export class Game {
 
   detectShot(t, ball, vx, vy, kmh, events) {
     if (kmh < this.cfg.shotKmh || t - this.lastShotT < 0.9) return;
-    if (Math.abs(vx) < Math.abs(vy) * 0.8) return; // eher Querpass/Bande
+    if (Math.abs(vx) < Math.abs(vy) * 0.8) return; // more of a sideways pass / wall bounce
     const towardLeft = vx < 0;
     const defending = towardLeft ? this.leftTeam() : 1 - this.leftTeam();
     const team = 1 - defending;
     const start = this.hist[0];
     const shooter = this.rodAt(start.x / this.cfg.tableLen);
-    // Wo kreuzt der Ball die Torlinie?
+    // Where does the ball cross the goal line?
     const goalX = towardLeft ? 0 : this.cfg.tableLen;
     const tt = (goalX - ball.u * this.cfg.tableLen) / vx;
     const vAtGoal = (ball.v * this.cfg.tableWid + vy * tt) / this.cfg.tableWid;
@@ -183,7 +183,7 @@ export class Game {
     }
     const reversed = s.towardLeft ? vx > 30 : vx < -30;
     const inDefThird = s.towardLeft ? ball.u < 0.35 : ball.u > 0.65;
-    // Abgewehrt = Ball prallt zurück, oder ein Schuss aufs Tor wird vor dem Tor gestoppt
+    // Saved = the ball bounces back, or a shot on target is stopped in front of goal
     const stopped = s.onTarget && kmh < 3 && t - s.t > 0.15;
     if (inDefThird && ((reversed && kmh > 2) || stopped)) {
       const defending = 1 - s.team;
@@ -244,7 +244,7 @@ export class Game {
       possession: ctrlTotal > 2 ? [Math.round((100 * s.control[0]) / ctrlTotal), Math.round((100 * s.control[1]) / ctrlTotal)] : null,
       maxKmh: Math.round(s.maxKmh),
       maxKmhTeam: s.maxKmhTeam,
-      ballHalf: this.last ? (this.last.u < 0.5 ? this.leftTeam() : 1 - this.leftTeam()) : null, // in wessen Hälfte
+      ballHalf: this.last ? (this.last.u < 0.5 ? this.leftTeam() : 1 - this.leftTeam()) : null, // whose half the ball is in
       state: this.state,
     };
   }
