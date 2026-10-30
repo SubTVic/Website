@@ -31,8 +31,9 @@ Extending the commentary is as easy as adding lines to `data/commentary.json`. `
 | Option | Quality | Reaction time | Cost |
 |---|---|---|---|
 | Browser voice | rather flat | instant | free |
-| ElevenLabs `eleven_flash_v2_5` | natural | very fast | subscription / characters |
-| ElevenLabs `eleven_v3` | very emotional (understands `[excited]`) | slower | subscription / characters |
+| ElevenLabs `eleven_v4_turbo` (default) | natural and emotional (understands `[excited]`) | very fast | subscription / characters |
+| ElevenLabs `eleven_flash_v2_5` | natural, less emotional | very fast | subscription / characters |
+| ElevenLabs `eleven_v4` | most expressive | slower | subscription / characters |
 
 Generated audio is cached in the browser. Each match generates a few new instant calls, so variety grows from match to match while the cost per match stays small.
 

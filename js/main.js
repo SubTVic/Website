@@ -27,7 +27,7 @@ const DEFAULTS = {
   crowd: 0.5,
   tts: 'browser',
   elevenKey: '',
-  elevenModel: 'eleven_flash_v2_5',
+  elevenModel: 'eleven_v4_turbo',
   voicePbp: '',
   voiceColor: '',
 };

@@ -83,7 +83,7 @@ export class ElevenLabsVoice {
   async synthesize(text, intensity) {
     const level = Math.max(0, INTENSITIES.indexOf(intensity));
     const v3 = V3_FAMILY.test(this.modelId);
-    // v3/v4 understand audio tags in square brackets
+    // v3/v4 (incl. v4 Turbo) understand audio tags in square brackets
     const spoken = v3 && level >= 2 ? `[excited] ${text}` : text;
     const key = this.cacheKey(text, intensity);
     let bytes = await cacheGet(key);
