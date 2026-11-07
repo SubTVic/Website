@@ -1,13 +1,13 @@
 # Ansatz · Website
 
-Statische Website der Innovationsberatung „Ansatz“ (Arbeitsname). Gebaut nach Entwurf A („Editorial“), ergänzt um die Skizze „vom Knäuel zur Linie“ aus Entwurf D.
+Statische Website der Innovationsberatung „Ansatz“ (Arbeitsname). Gebaut nach Entwurf A („Editorial“), ergänzt um Elemente aus Entwurf D („Karopapier“): die Skizze „vom Knäuel zur Linie“, Notizzettel, Karopapier und Handschrift.
 
 ## Aufbau
 
 - `index.html`: Startseite
 - `impressum.html`, `datenschutz.html`: Rechtliches (Entwurf, Platzhalter in eckigen Klammern ergänzen)
 - `css/style.css`: Gestaltung, Akzentfarbe in `--accent`
-- `js/main.js`: Zeichen-Animation der Skizze und Kontaktformular
+- `js/main.js`: Skizze, die sich beim Scrollen zeichnet, und Kontaktformular
 - `img/`, `media/`: Fotos und Pitch-Video
 - `fonts/`: lokal eingebundene Schriften (kein Google-Abruf)
 
