@@ -78,16 +78,21 @@ body{margin:0;background:#fff}
 
 /* Arbeiten */
 .a-work{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:48px 32px}
-.a-card figure,.a-tile{aspect-ratio:4/3;overflow:hidden;background:var(--soft)}
+.a-card figure,.a-tile{aspect-ratio:4/3;background:var(--soft)}
+.a-card figure{overflow:hidden}
 .a-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s}
 .a-card:hover img{transform:scale(1.03)}
+/* FOMO: Handy-Screenshot ragt von unten ins Bild */
+.a-card .a-shot{background:var(--accent);padding-top:8%}
+.a-card .a-shot img{width:56%;height:auto;margin:0 auto;object-fit:fill;border:6px solid #000;border-bottom:0;border-radius:24px 24px 0 0;box-shadow:0 18px 40px rgba(0,0,0,.28);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.a-card:hover .a-shot img{transform:translateY(-8px)}
 .a-card .tag{display:block;font-weight:600;font-size:15px;margin:18px 0 6px}
 .a-card h3{font-size:32px;line-height:1.04;font-weight:700;margin-bottom:10px}
 .a-card p{color:var(--grey);font-size:17px;max-width:40ch}
-.a-tile{padding:32px;display:flex;flex-direction:column;justify-content:space-between}
-.a-tile h3{font-weight:800;font-size:clamp(44px,5vw,76px);line-height:.95;letter-spacing:-.05em}
+/* Ohne overflow:hidden wächst die Kachel mit, statt Text abzuschneiden */
+.a-tile{padding:32px;display:flex;flex-direction:column;justify-content:space-between;gap:24px}
+.a-tile h3{font-weight:800;font-size:clamp(44px,5vw,76px);line-height:.95;letter-spacing:-.05em;overflow-wrap:break-word}
 .a-tile p{font-size:19px;line-height:1.4;max-width:30ch;margin-top:18px}
-.a-tile.c{background:var(--accent);color:#fff}
 .a-tile .tag{font-weight:600;font-size:15px}
 
 .a-band{margin-top:64px;height:clamp(200px,18vw,260px);overflow:hidden;background:var(--soft)}
@@ -109,7 +114,10 @@ body{margin:0;background:#fff}
 .a-who span{color:var(--grey);font-size:17px;line-height:1.45}
 
 /* Skizze: vom Knäuel zur Linie (aus Entwurf D übernommen) */
-.a .a-sketch{margin:8px 0 56px;padding:28px 0 8px;border-top:1px solid var(--line)}
+.a-sketch-track{margin:8px 0 56px;padding-top:28px;border-top:1px solid var(--line)}
+.a .a-sketch{margin:0;padding:0 0 8px}
+/* js/main.js verlängert die Spur und heftet die Skizze an, solange sich der Strich zeichnet */
+.a-sketch-track.sk-pin .a-sketch{position:sticky}
 .a-sketch svg{display:block;width:100%;height:auto;overflow:visible}
 .a-sketch .sk-compact{display:none;max-width:520px}
 .sk-line{fill:none;stroke:#000;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
@@ -119,12 +127,11 @@ body{margin:0;background:#fff}
 .sk-pill rect{fill:var(--accent)}
 .sk-pill text{fill:#fff;font:600 22px 'Instrument Sans',system-ui,sans-serif}
 .sk-tip{fill:#000;opacity:0}
-/* Beim Scrollen: js/main.js setzt die Länge des Strichs, Beschriftungen erscheinen, sobald der Strich sie erreicht */
+/* Beim Scrollen: js/main.js setzt die Länge des Strichs und blendet Beschriftungen ein, sobald der Strich sie erreicht.
+   Alles hängt direkt an der Scrollposition, nichts läuft von selbst ab. */
 .sk-scroll .sk-line{stroke-dasharray:100 102}
-.sk-scroll .sk-fade{opacity:0;transition:opacity .35s ease}
-.sk-scroll .sk-fade.on{opacity:1}
-.sk-scroll .sk-pill{transform-box:fill-box;transform-origin:center;transform:translateY(8px) scale(.92);transition:opacity .35s ease,transform .45s cubic-bezier(.3,1.6,.5,1)}
-.sk-scroll .sk-pill.on{transform:none}
+.sk-scroll .sk-fade{opacity:0}
+.sk-scroll .sk-pill{transform-box:fill-box;transform-origin:center}
 
 /* Team */
 .a .a-team-photo{margin-bottom:48px}
