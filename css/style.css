@@ -3,14 +3,12 @@
 @font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:500 800;font-display:swap;src:url(../fonts/bricolage-grotesque-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 700;font-display:swap;src:url(../fonts/instrument-sans-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 700;font-display:swap;src:url(../fonts/instrument-sans-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Caveat';font-style:normal;font-weight:500 700;font-display:swap;src:url(../fonts/caveat-latin-ext.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:'Caveat';font-style:normal;font-weight:500 700;font-display:swap;src:url(../fonts/caveat-latin.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{margin:0;background:#fff}
 
-.a{--accent:#2340FF;--grey:#575757;--line:#D6D6D6;--soft:#F2F2F2;--y:#FFD84A;--mint:#B4EBCF;--sky:#BFD6FF;font-family:'Instrument Sans',system-ui,sans-serif;font-size:18px;line-height:1.55;color:#000;background:#fff;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.a{--accent:#2340FF;--grey:#575757;--line:#D6D6D6;--soft:#F2F2F2;font-family:'Instrument Sans',system-ui,sans-serif;font-size:18px;line-height:1.55;color:#000;background:#fff;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 .a *{box-sizing:border-box}
 .a img,.a video{max-width:100%}
 .a h1,.a h2,.a h3,.a h4{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;margin:0;letter-spacing:-.035em}
@@ -48,13 +46,6 @@ body{margin:0;background:#fff}
 .a-hero-copy{grid-column:1;grid-row:2;margin-top:40px;display:flex;flex-direction:column;gap:28px;max-width:560px}
 .a-hero-copy p{font-size:24px;line-height:1.38}
 .a-btns{display:flex;flex-wrap:wrap;gap:12px}
-
-/* Handschrift (aus Entwurf D) */
-.a-hand{font-family:'Caveat',cursive;font-weight:600;line-height:1.1;letter-spacing:0;color:var(--accent)}
-.a .a-hero-note{font-size:31px;line-height:1.15;margin-top:-8px;transform:rotate(-1.2deg);transform-origin:left center;max-width:30ch}
-.a-hero-note span{position:relative;white-space:nowrap}
-.a-hero-note span::after{content:"";position:absolute;left:-2px;right:-4px;bottom:1px;height:9px;background:var(--y);opacity:.75;z-index:-1;border-radius:2px;transform:rotate(-1deg)}
-.a-hero-copy{position:relative;z-index:0}
 .a-hero-media{grid-column:2;grid-row:1;margin-top:14px}
 .a-hero-media video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:#000}
 .a-cap{margin-top:10px;font-size:15px;color:var(--grey)}
@@ -69,25 +60,6 @@ body{margin:0;background:#fff}
 .a-now-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:40px;align-items:start}
 .a-now h2{grid-column:1/span 8;font-weight:700;font-size:clamp(38px,5.4vw,82px);line-height:1}
 .a-now-side{grid-column:10/span 3;display:flex;flex-direction:column;gap:20px;font-size:19px;color:#D0D0D0}
-
-/* Karopapier mit Notizzetteln (aus Entwurf D) */
-.a-grid-paper{background-color:#fff;background-image:linear-gradient(rgba(35,64,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(35,64,255,.09) 1px,transparent 1px);background-size:40px 40px;background-position:-1px -1px;padding:80px 0 96px;border-bottom:1px solid var(--line)}
-.a-task{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:40px;align-items:center}
-.a-task-head{grid-column:1/span 6;display:flex;flex-direction:column;gap:14px}
-.a-eyebrow{font-size:34px;transform:rotate(-3deg);transform-origin:left bottom;align-self:flex-start}
-.a-task h2{font-weight:800;font-size:clamp(40px,4.8vw,72px);line-height:.98;letter-spacing:-.045em}
-.a-task .a-notes{grid-column:8/span 5;grid-template-columns:minmax(0,1fr);gap:40px;padding-inline:8px}
-.a-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px}
-.a-note{position:relative;padding:34px 30px 28px;display:flex;flex-direction:column;gap:10px;color:#000;box-shadow:0 1px 0 rgba(0,0,0,.08),6px 8px 0 rgba(0,0,0,.08)}
-.a-note::before{content:"";position:absolute;top:-13px;left:50%;width:96px;height:28px;margin-left:-48px;background:rgba(255,255,255,.62);border:1px solid rgba(0,0,0,.08);transform:rotate(-2deg)}
-.a-note.y{background:var(--y)}.a-note.m{background:var(--mint)}.a-note.s{background:var(--sky)}
-.a-note .a-hand{font-size:34px;color:#0A1B5C}
-.a-note p{font-size:21px;line-height:1.4}
-.a-note h3{font-size:clamp(28px,2.6vw,36px);font-weight:700;line-height:1.05;letter-spacing:-.03em}
-.a-note.r1{transform:rotate(-1.4deg)}.a-note.r2{transform:rotate(1.2deg)}
-.a-cases{margin:0 0 64px;max-width:1080px}
-.a-cases .a-note{padding:36px 34px 32px;gap:12px}
-.a-cases .a-note .a-hand{font-size:30px}
 
 /* Abschnitte */
 .a-sec{padding-block:56px 0}
@@ -142,11 +114,11 @@ body{margin:0;background:#fff}
 .a-sketch .sk-compact{display:none;max-width:520px}
 .sk-line{fill:none;stroke:#000;stroke-width:4.5;stroke-linecap:round;stroke-linejoin:round}
 .sk-dot{fill:var(--accent)}
-.sk-label{font-family:'Caveat',cursive;font-weight:600;font-size:36px;fill:var(--grey)}
-.sk-label.strong{fill:var(--accent);font-size:40px}
-.sk-tip{fill:#000;opacity:0}
+.sk-label{font-family:'Instrument Sans',system-ui,sans-serif;font-size:24px;fill:var(--grey)}
+.sk-label.strong{fill:#000;font-weight:600;font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;font-size:30px;letter-spacing:-.02em}
 .sk-pill rect{fill:var(--accent)}
 .sk-pill text{fill:#fff;font:600 22px 'Instrument Sans',system-ui,sans-serif}
+.sk-tip{fill:#000;opacity:0}
 /* Beim Scrollen: js/main.js setzt die Länge des Strichs, Beschriftungen erscheinen, sobald der Strich sie erreicht */
 .sk-scroll .sk-line{stroke-dasharray:100 102}
 .sk-scroll .sk-fade{opacity:0;transition:opacity .35s ease}
@@ -217,9 +189,6 @@ body{margin:0;background:#fff}
 .a-steps>li{grid-column:auto}
 .a-steps>li:first-child{grid-column:1/-1;grid-row:auto}
 .a-quotes{grid-template-columns:1fr}
-.a-task{grid-template-columns:minmax(0,1fr);gap:28px}
-.a-task-head,.a-task .a-notes{grid-column:1/-1}
-.a-task .a-notes{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px;padding-inline:0;margin-top:16px}
 }
 @media (max-width:900px){
 .a-sketch .sk-wide{display:none}
@@ -237,8 +206,4 @@ body{margin:0;background:#fff}
 .a-hero-copy p{font-size:21px}
 .a .a-logo{font-size:28px}
 .a .a-nav .a-btn{padding:0 18px}
-.a-notes,.a-task .a-notes{grid-template-columns:minmax(0,1fr);gap:40px}
-.a-grid-paper{padding:72px 0 80px}
-.a .a-hero-note{font-size:27px}
-.a-note p{font-size:19px}
 }

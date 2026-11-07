@@ -1,6 +1,6 @@
 # Ansatz · Website
 
-Statische Website der Innovationsberatung „Ansatz“ (Arbeitsname). Gebaut nach Entwurf A („Editorial“), ergänzt um Elemente aus Entwurf D („Karopapier“): die Skizze „vom Knäuel zur Linie“, Notizzettel, Karopapier und Handschrift.
+Statische Website der Innovationsberatung „Ansatz“ (Arbeitsname). Gebaut nach Entwurf A („Editorial“), ergänzt um die Skizze „vom Knäuel zur Linie“ aus Entwurf D.
 
 ## Aufbau
 
