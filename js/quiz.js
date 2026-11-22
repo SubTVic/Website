@@ -98,7 +98,9 @@
     var wort = ZAHLWORT[n] || String(n);
     document.querySelectorAll("[data-anzahl]").forEach(function (el) { el.textContent = wort; });
     document.querySelectorAll("[data-anzahl-zahl]").forEach(function (el) { el.textContent = n; });
-    document.querySelectorAll("[data-minuten]").forEach(function (el) { el.textContent = Math.max(1, Math.round(n / 5)); });
+    var min = Math.max(1, Math.round(n / 5));
+    document.querySelectorAll("[data-minuten]").forEach(function (el) { el.textContent = min; });
+    document.querySelectorAll("[data-minuten-einheit]").forEach(function (el) { el.textContent = min === 1 ? "Minute" : "Minuten"; });
   }
 
   /* ---------- Fragen ---------- */

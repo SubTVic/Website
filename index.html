@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Challenge-Check · Design Thinking</title>
-  <meta name="description" content="Zehn Fragen, eine Challenge: Finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.">
+  <meta name="description" content="Fünf Fragen, eine Challenge: Finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.">
   <meta name="theme-color" content="#004242">
   <meta property="og:title" content="Challenge-Check · Design Thinking">
-  <meta property="og:description" content="Zehn Fragen, eine Challenge: Welche Design-Thinking-Challenge wartet auf dich?">
+  <meta property="og:description" content="Fünf Fragen, eine Challenge: Welche Design-Thinking-Challenge wartet auf dich?">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/challenge-check.css">
@@ -46,13 +46,13 @@
         <div>
           <p class="mini">Design-Thinking-Challenge</p>
           <h1 id="start-titel">Welche <em>Challenge</em> wartet auf dich?</h1>
-          <p class="lead">Beantworte <span data-anzahl>zehn</span> Fragen und finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.</p>
+          <p class="lead">Beantworte <span data-anzahl>fünf</span> Fragen und finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.</p>
           <p class="fehler" id="fehler" role="alert" hidden></p>
           <div class="start-aktion">
             <button type="button" class="btn btn-neon" id="los">Check starten <span aria-hidden="true">→</span></button>
             <ul class="fakten" aria-label="Auf einen Blick">
-              <li><strong data-anzahl-zahl>10</strong> Fragen</li>
-              <li><strong data-minuten>2</strong> Minuten</li>
+              <li><strong data-anzahl-zahl>5</strong> Fragen</li>
+              <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
               <li><strong>1</strong> Challenge</li>
             </ul>
           </div>
@@ -74,7 +74,7 @@
     <!-- 2. Frage -->
     <section class="screen" id="s-frage" aria-labelledby="frage-text" hidden>
       <div class="frage-wrap">
-        <p class="frage-nr" aria-hidden="true"><span id="nr">01</span><span class="von" id="von">/10</span></p>
+        <p class="frage-nr" aria-hidden="true"><span id="nr">01</span><span class="von" id="von">/5</span></p>
         <div class="karte">
           <h2 id="frage-text" tabindex="-1"></h2>
           <ul class="antworten" id="antworten"></ul>

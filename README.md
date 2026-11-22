@@ -1,6 +1,6 @@
 # Challenge-Check · Design Thinking
 
-Ein kleines Quiz als statische Website: Man beantwortet zehn Fragen und bekommt am Ende eine Design-Thinking-Challenge zugewiesen („Du bist perfekt dafür geeignet, diese Challenge zu entwickeln: …“).
+Ein kleines Quiz als statische Website: Man beantwortet fünf Fragen und bekommt am Ende eine Design-Thinking-Challenge zugewiesen („Du bist perfekt dafür geeignet, diese Challenge zu entwickeln: …“).
 
 Das Ergebnis wird **zufällig** gezogen, jedes Ergebnis ist gleich wahrscheinlich, unabhängig von den Antworten.
 
@@ -19,7 +19,7 @@ Alles Inhaltliche steht in **`js/ergebnisse.js`**, mit Anleitung direkt in der D
 
 ## Die Fragen ändern
 
-Die zehn Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl der Fragen frei). Die Antworten beeinflussen das Ergebnis nicht.
+Die fünf Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl der Fragen frei). Die Antworten beeinflussen das Ergebnis nicht.
 
 ## Aufbau
 
