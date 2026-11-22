@@ -25,7 +25,7 @@ Die zehn Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl de
 
 - `index.html`: die Seite mit allen vier Ansichten (Start, Frage, Auswertung, Ergebnis)
 - `js/quiz.js`: Ablauf des Quiz; `js/zufall.js`: die gleichverteilte Zufallsauswahl
-- `css/style.css`: Gestaltung; die Farben stehen oben unter `:root`
+- `css/challenge-check.css`: Gestaltung; die Farben stehen oben unter `:root`
 - `impressum.html`, `datenschutz.html`: Entwürfe, Angaben in eckigen Klammern ergänzen
 - `fonts/`: lokal eingebundene Schriften (kein Abruf bei Google)
 
