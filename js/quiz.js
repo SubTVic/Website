@@ -8,18 +8,18 @@
   var ERGEBNISSE = Array.isArray(window.ERGEBNISSE) ? window.ERGEBNISSE : [];
   var T = window.ERGEBNIS_TEXTE || {};
   var TEXT = {
-    kopf: T.kopf || "{vorname}, du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
+    kopf: T.kopf || "Du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
     frageLabel: T.frageLabel || "Die Leitfrage",
     teilenText: T.teilenText || "Ich soll diese Challenge entwickeln: „{titel}“."
   };
-  var N = window.NAMEN_TEXTE || {};
-  var NAMEN = {
-    unbekannt: N.unbekannt === "zufall" ? "zufall" : "fehler",
-    einWort: N.einWort || "Das sieht nach nur einem Namen aus. Bitte gib Vor- und Nachnamen ein.",
-    teamEinWort: N.teamEinWort || "Bitte gib auch von deiner Kollegin oder deinem Kollegen Vor- und Nachnamen ein.",
-    nichtGefunden: N.nichtGefunden || "Zu diesem Namen haben wir keine Challenge gefunden. Bitte prüfe die Schreibweise.",
-    keineListe: N.keineListe || "Es ist noch keine Namensliste hinterlegt.",
-    technik: N.technik || "Der Namensabgleich funktioniert in diesem Browser nicht."
+  var M = window.MATRIKEL_TEXTE || {};
+  var MATRIKEL = {
+    unbekannt: M.unbekannt === "zufall" ? "zufall" : "fehler",
+    ungueltig: M.ungueltig || "Bitte gib deine Matrikelnummer ein (nur Ziffern).",
+    teamUngueltig: M.teamUngueltig || "Bitte gib auch die Matrikelnummer deiner Kollegin oder deines Kollegen ein (nur Ziffern).",
+    nichtGefunden: M.nichtGefunden || "Zu dieser Matrikelnummer haben wir keine Challenge gefunden. Bitte prüfe deine Eingabe.",
+    keineListe: M.keineListe || "Es ist noch keine Liste mit Matrikelnummern hinterlegt.",
+    technik: M.technik || "Der Abgleich funktioniert in diesem Browser nicht."
   };
 
   var AUSWERTUNG = [
@@ -38,7 +38,7 @@
   var ZAHLWORT = ["", "eine", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"];
 
   var reduziert = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  var SCREENS = ["s-start", "s-frage", "s-laden", "s-ergebnis"];
+  var SCREENS = ["s-start", "s-id", "s-frage", "s-laden", "s-ergebnis"];
 
   var antworten = [];
   var aktuell = 0;
@@ -47,8 +47,8 @@
   var letztesErgebnis = -1;
   var sucht = false;
   /* Wer spielt? ziel = Index der festgelegten Challenge (-1 = zufällig).
-     Der Name der Kollegin oder des Kollegen (Team) hat keinen Einfluss. */
-  var spieler = { vorname: "", ziel: -1 };
+     Die Matrikelnummer der Kollegin oder des Kollegen (Team) hat keinen Einfluss. */
+  var spieler = { ziel: -1 };
 
   function $(id) { return document.getElementById(id); }
   function pad(n) { return n < 10 ? "0" + n : String(n); }
@@ -74,6 +74,7 @@
     var rest = "";
     var fertig = 0;
     var jetzt = -1;
+    if (id === "s-id") { rest = "Matrikelnummer"; }
     if (id === "s-frage") { rest = "Frage " + (aktuell + 1) + " von " + FRAGEN.length; fertig = aktuell; jetzt = aktuell; }
     if (id === "s-laden") { rest = "Auswertung"; fertig = FRAGEN.length; }
     if (id === "s-ergebnis") { rest = "Ergebnis"; fertig = FRAGEN.length; }
@@ -201,7 +202,7 @@
   function zeigeErgebnis(index, mitKonfetti) {
     var e = ERGEBNISSE[index];
     letztesErgebnis = index;
-    $("e-kopf").textContent = kopfText();
+    $("e-kopf").textContent = TEXT.kopf;
     $("e-titel").textContent = e.titel || "";
     $("e-label").textContent = TEXT.frageLabel;
     $("e-frage").textContent = e.frage || "";
@@ -238,31 +239,9 @@
     }
   }
 
-  /* Überschrift über dem Ergebnis; {vorname} fällt weg, wenn es keinen gibt */
-  function kopfText() {
-    var t = TEXT.kopf;
-    if (spieler.vorname) { return t.replace("{vorname}", spieler.vorname); }
-    t = t.replace(/\{vorname\}[,:]?\s*/, "");
-    return t.charAt(0).toUpperCase() + t.slice(1);
-  }
+  /* ---------- Matrikelnummer und Team ---------- */
 
-  /* ---------- Name und Team ---------- */
-
-  function bereinige(s) { return String(s || "").trim().replace(/\s+/g, " "); }
-
-  function istVollerName(s) { return !!window.Namen && window.Namen.teile(s).length >= 2; }
-
-  /* Vorname fürs Ergebnis: erstes Wort, bei „Nachname, Vorname“ das Wort nach dem Komma */
-  function ermittleVorname(name) {
-    var teil = name.indexOf(",") > -1 ? name.split(",")[1] : name;
-    var wort = bereinige(teil).split(" ")[0] || "";
-    /* Ganz groß oder ganz klein getippt: sauber schreiben (anna-lena -> Anna-Lena).
-       Gemischte Schreibweise bleibt, wie sie ist. */
-    if (wort === wort.toLowerCase() || wort === wort.toUpperCase()) {
-      wort = wort.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, function (_, vor, buchstabe) { return vor + buchstabe.toUpperCase(); });
-    }
-    return wort;
-  }
+  function istNummer(s) { return !!window.Matrikel && window.Matrikel.normalisiere(s) !== ""; }
 
   function setzeFehler(feld, text) {
     var box = $(feld + "-fehler");
@@ -277,83 +256,95 @@
     $("team-feld").hidden = !oeffnen;
     $("team-toggle").setAttribute("aria-expanded", oeffnen ? "true" : "false");
     if (oeffnen) {
-      $("team-name").focus();
+      $("team-matrikel").focus();
     } else {
-      $("team-name").value = "";
-      setzeFehler("team-name", "");
+      $("team-matrikel").value = "";
+      setzeFehler("team-matrikel", "");
     }
   }
 
-  /* Welche Challenge gehört zu diesem Namen? Ergebnis: { ok, index | meldung } */
-  function sucheZiel(name) {
+  function zeigeId(leeren) {
+    window.clearTimeout(timer);
+    if (leeren) {
+      $("matrikel").value = "";
+      $("team-matrikel").value = "";
+      setzeFehler("matrikel", "");
+      setzeFehler("team-matrikel", "");
+      if (!$("team-feld").hidden) { teamUmschalten(); }
+      spieler = { ziel: -1 };
+    }
+    zeige("s-id", "id-titel");
+  }
+
+  /* Welche Challenge gehört zu dieser Matrikelnummer? Ergebnis: { ok, index | meldung } */
+  function sucheZiel(eingabe) {
     var z = window.ZUORDNUNG;
-    var zufall = NAMEN.unbekannt === "zufall";
+    var zufall = MATRIKEL.unbekannt === "zufall";
     function nichtOk(meldung) { return zufall ? { ok: true, index: -1 } : { ok: false, meldung: meldung }; }
 
-    if (!z || !z.eintraege || !Object.keys(z.eintraege).length) { return Promise.resolve(nichtOk(NAMEN.keineListe)); }
-    if (!window.Namen) { return Promise.resolve({ ok: false, meldung: NAMEN.technik }); }
-    return window.Namen.finde(name, z).then(function (id) {
-      if (id === null) { return nichtOk(NAMEN.nichtGefunden); }
+    if (!z || !z.eintraege || !Object.keys(z.eintraege).length) { return Promise.resolve(nichtOk(MATRIKEL.keineListe)); }
+    if (!window.Matrikel) { return Promise.resolve({ ok: false, meldung: MATRIKEL.technik }); }
+    return window.Matrikel.finde(eingabe, z).then(function (id) {
+      if (id === null) { return nichtOk(MATRIKEL.nichtGefunden); }
       for (var i = 0; i < ERGEBNISSE.length; i++) {
         if (ERGEBNISSE[i].id === id) { return { ok: true, index: i }; }
       }
       if (window.console) { console.error("Challenge-ID \"" + id + "\" steht in zuordnung.js, fehlt aber in ergebnisse.js."); }
-      return nichtOk(NAMEN.nichtGefunden);
+      return nichtOk(MATRIKEL.nichtGefunden);
     }, function () {
-      return { ok: false, meldung: NAMEN.technik };
+      return { ok: false, meldung: MATRIKEL.technik };
     });
   }
 
-  function starte() {
+  function absenden() {
     if (sucht) { return; }
-    var name = bereinige($("name").value);
+    var nummer = $("matrikel").value;
     var teamOffen = !$("team-feld").hidden;
-    var team = teamOffen ? bereinige($("team-name").value) : "";
-    setzeFehler("name", "");
-    setzeFehler("team-name", "");
+    setzeFehler("matrikel", "");
+    setzeFehler("team-matrikel", "");
 
-    if (!istVollerName(name)) {
-      setzeFehler("name", NAMEN.einWort);
-      $("name").focus();
+    if (!istNummer(nummer)) {
+      setzeFehler("matrikel", MATRIKEL.ungueltig);
+      $("matrikel").focus();
       return;
     }
-    if (teamOffen && !istVollerName(team)) {
-      setzeFehler("team-name", NAMEN.teamEinWort);
-      $("team-name").focus();
+    /* Die Nummer der Kollegin oder des Kollegen wird nur auf Form geprüft und sonst nicht verwendet */
+    if (teamOffen && !istNummer($("team-matrikel").value)) {
+      setzeFehler("team-matrikel", MATRIKEL.teamUngueltig);
+      $("team-matrikel").focus();
       return;
     }
 
     sucht = true;
-    $("los").disabled = true;
-    sucheZiel(name).then(function (r) {
+    var knopf = $("id-weiter");
+    var knopfText = knopf.innerHTML;
+    knopf.disabled = true;
+    knopf.textContent = "Prüfe …";
+    sucheZiel(nummer).then(function (r) {
       sucht = false;
-      $("los").disabled = false;
+      knopf.disabled = false;
+      knopf.innerHTML = knopfText;
       if (!r.ok) {
-        setzeFehler("name", r.meldung);
-        $("name").focus();
+        setzeFehler("matrikel", r.meldung);
+        $("matrikel").focus();
         return;
       }
-      spieler = { vorname: ermittleVorname(name), ziel: r.index };
-      neustart(false);
+      spieler = { ziel: r.index };
+      neustart("quiz");
     });
   }
 
   /* ---------- Neustart ---------- */
 
-  function neustart(zuStart, felderLeeren) {
+  /* wohin: "start" | "id" | "quiz" */
+  function neustart(wohin, felderLeeren) {
     window.clearTimeout(timer);
     antworten = [];
     aktuell = 0;
     gesperrt = false;
-    if (felderLeeren) {
-      $("name").value = "";
-      $("team-name").value = "";
-      setzeFehler("name", "");
-      setzeFehler("team-name", "");
-      if (!$("team-feld").hidden) { teamUmschalten(); }
-      spieler = { vorname: "", ziel: -1 };
-    }
-    if (zuStart) { zeige("s-start", felderLeeren ? "name" : "start-titel"); } else { frageAnzeigen(); }
+    if (wohin === "quiz") { frageAnzeigen(); }
+    else if (wohin === "id") { zeigeId(felderLeeren); }
+    else { zeige("s-start", "start-titel"); }
   }
 
   /* ---------- Konfetti ---------- */
@@ -430,13 +421,15 @@
     fuelleZahlen();
     aktualisiereLeiste("s-start");
 
-    $("name-form").addEventListener("submit", function (ev) { ev.preventDefault(); starte(); });
+    $("los").addEventListener("click", function () { neustart("id", false); });
+    $("id-form").addEventListener("submit", function (ev) { ev.preventDefault(); absenden(); });
+    $("id-zurueck").addEventListener("click", function () { neustart("start"); });
     $("team-toggle").addEventListener("click", teamUmschalten);
-    $("name").addEventListener("input", function () { setzeFehler("name", ""); });
-    $("team-name").addEventListener("input", function () { setzeFehler("team-name", ""); });
+    $("matrikel").addEventListener("input", function () { setzeFehler("matrikel", ""); });
+    $("team-matrikel").addEventListener("input", function () { setzeFehler("team-matrikel", ""); });
     $("zurueck").addEventListener("click", zurueck);
-    $("pfad-start").addEventListener("click", function () { neustart(true, false); });
-    $("nochmal").addEventListener("click", function () { neustart(true, true); });
+    $("pfad-start").addEventListener("click", function () { neustart("start"); });
+    $("nochmal").addEventListener("click", function () { neustart("id", true); });
     $("teilen").addEventListener("click", teilen);
 
     if (fehler) {

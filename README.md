@@ -1,21 +1,21 @@
 # Challenge-Check · Design Thinking
 
-Ein kleines Quiz als statische Website: Man gibt seinen Namen ein, beantwortet fünf Fragen und bekommt am Ende eine Design-Thinking-Challenge zugewiesen („Max, du bist perfekt dafür geeignet, diese Challenge zu entwickeln: …“).
+Ein kleines Quiz als statische Website: Man klickt auf „Check starten“, gibt seine Matrikelnummer ein, beantwortet fünf Fragen und bekommt am Ende eine Design-Thinking-Challenge zugewiesen („Du bist perfekt dafür geeignet, diese Challenge zu entwickeln: …“).
 
-**Welche Challenge es ist, bestimmt allein der Name** (laut Namensliste). Die Antworten im Quiz ändern nichts. Über „Apply together as a team“ kann man zusätzlich den Namen einer Kollegin oder eines Kollegen eintippen. Das ist nur eine Eingabe und ändert das Ergebnis nicht.
+**Welche Challenge es ist, bestimmt allein die Matrikelnummer** (laut Liste). Die Antworten im Quiz ändern nichts. Über „Apply together as a team“ kann man zusätzlich die Matrikelnummer einer Kollegin oder eines Kollegen eintippen. Das ist nur eine Eingabe und ändert das Ergebnis nicht.
 
 Der Look orientiert sich an der Startup Factory boOst (Petrol, Neongrün, Creme, Space Grotesk, Laufband) und an der Universität Jena (Marineblau, Goldlinie, weiße Karten, Roboto Condensed). Logos und Bilder der beiden sind nicht enthalten.
 
-## Namen und Challenges zuordnen
+## Matrikelnummern und Challenges zuordnen
 
 1. **Challenges eintragen** in `js/ergebnisse.js`. Jede Challenge hat eine `id` (z. B. `"forschung-markt"`), einen Titel, eine Leitfrage und eine Beschreibung. Die Beispiele dort müssen ersetzt werden.
-2. **Namensliste anlegen** als Textdatei `privat/zuordnung.csv`, eine Person pro Zeile, mit Semikolon oder Tab getrennt:
+2. **Liste anlegen** als Textdatei `privat/zuordnung.csv`, eine Person pro Zeile, mit Semikolon oder Tab getrennt:
 
    ```
-   Name;Challenge
-   Max Mustermann;1
-   Erika Musterfrau;Wissen, das in Köpfen steckt
-   Jürgen Müller;forschung-markt
+   Matrikelnummer;Challenge
+   1234567;1
+   2345678;Wissen, das in Köpfen steckt
+   3456789;forschung-markt
    ```
 
    Die Challenge darf als Nummer (Reihenfolge in `js/ergebnisse.js`, ab 1), als `id` oder als Titel angegeben werden. Der Ordner `privat/` wird **nicht** ins Repository übernommen.
@@ -25,31 +25,45 @@ Der Look orientiert sich an der Startup Factory boOst (Petrol, Neongrün, Creme,
    node tools/zuordnung-erzeugen.js privat/zuordnung.csv
    ```
 
-   Das schreibt `js/zuordnung.js`. Bei Fehlern in der Liste (unbekannte Challenge, Name ohne Nachnamen, widersprüchliche Einträge) bricht es mit einer Meldung ab und ändert nichts. Mit `node tools/zuordnung-erzeugen.js --pruefen "Max Mustermann"` lässt sich ein einzelner Name testen.
+   Das schreibt `js/zuordnung.js` und aktualisiert die Versionsnummern in den Seiten. Bei Fehlern in der Liste (ungültige Nummer, unbekannte Challenge, widersprüchliche Einträge) bricht es mit einer Meldung ab und ändert nichts. Mit `node tools/zuordnung-erzeugen.js --pruefen 1234567` lässt sich eine einzelne Nummer testen.
 4. Änderungen hochladen (commit und push auf `master`).
 
-Der Namensabgleich ignoriert Groß-/Kleinschreibung, Umlaute (Müller = Mueller), Bindestriche und doppelte Leerzeichen, erlaubt die Reihenfolge „Nachname, Vorname“ und findet „Max Peter Mustermann“ auch, wenn in der Liste „Max Mustermann“ steht.
+### Wie der Abgleich funktioniert und was er schützt
 
-**Wichtig zum Datenschutz:** Weil die Seite öffentlich ist, steht in `js/zuordnung.js` keine Namensliste im Klartext, sondern nur Prüfwerte (PBKDF2-SHA256). Wer einen Namen kennt oder errät, kann ihn aber trotzdem eingeben und sieht dessen Challenge. Das ist bei einer Seite ohne Anmeldung nicht zu verhindern. Auch die Challenge-Texte selbst sind im Quelltext lesbar.
+In `js/zuordnung.js` steht keine Matrikelnummer im Klartext, sondern pro Person ein Hash (PBKDF2-SHA256, 600.000 Runden, mit Salt). Der Browser hasht die Eingabe genauso und vergleicht die Hashes. Eingaben wie `0123 4567` oder `123-4567` werden vorher bereinigt (Leerzeichen, Punkte, Bindestriche, führende Nullen). Die Eingabe verlässt den Browser nicht.
 
-Was mit Namen passiert, die nicht in der Liste stehen, stellst du in `js/ergebnisse.js` unter `NAMEN_TEXTE.unbekannt` ein: `"fehler"` zeigt eine Meldung und startet nicht (Standard), `"zufall"` startet trotzdem und zieht eine zufällige Challenge.
+**Grenze des Verfahrens:** Matrikelnummern haben nur wenige Millionen mögliche Werte. Wer die Hashes aus dem Repository kopiert, kann deshalb mit viel Rechenleistung (Grafikkarte) alle möglichen Nummern durchprobieren und so herausfinden, welche Nummern auf der Liste stehen. Das dauert bei den gewählten 600.000 Runden mindestens Minuten bis Stunden, ist aber möglich. Der Hash schützt also vor dem Mitlesen im Quelltext, nicht vor einem gezielten Angriff. Außerdem sieht jede Person, die eine Nummer kennt oder errät, durch Eingabe dieser Nummer deren Challenge. Auch die Challenge-Texte stehen lesbar im Quelltext.
+
+Wenn das nicht reicht: zusätzlich einen Veranstaltungscode abfragen, der nicht im Repository steht und in den Hash einfließt (dann reicht die Kenntnis einer Matrikelnummer nicht).
+
+Was mit Nummern passiert, die nicht in der Liste stehen, stellst du in `js/ergebnisse.js` unter `MATRIKEL_TEXTE.unbekannt` ein: `"fehler"` zeigt eine Meldung und startet nicht (Standard), `"zufall"` startet trotzdem und zieht eine zufällige Challenge.
 
 ## Die Challenges bearbeiten
 
-Alles Inhaltliche steht in **`js/ergebnisse.js`**, mit Anleitung direkt in der Datei: Titel, Leitfrage, Beschreibung, optional Partner und Link, dazu der Satz über der Challenge. Den Titel darfst du jederzeit ändern, die `id` nicht, sobald eine Namensliste erzeugt wurde.
+Alles Inhaltliche steht in **`js/ergebnisse.js`**, mit Anleitung direkt in der Datei: Titel, Leitfrage, Beschreibung, optional Partner und Link, dazu der Satz über der Challenge. Den Titel darfst du jederzeit ändern, die `id` nicht, sobald eine Liste erzeugt wurde.
 
-**Vorschau:** `index.html?ergebnis=2` zeigt direkt die zweite Challenge, ohne Namen und Quiz.
+**Vorschau:** `index.html?ergebnis=2` zeigt direkt die zweite Challenge, ohne Eingabe und Quiz.
 
 ## Die Fragen ändern
 
 Die fünf Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl der Fragen frei). Die Antworten beeinflussen das Ergebnis nicht.
 
+## Nach Änderungen an Design oder Skripten
+
+GitHub Pages lässt Dateien bis zu 10 Minuten im Cache. Damit Besucher nach einer Änderung nicht das neue HTML mit altem CSS oder Skript sehen, tragen die Einbindungen Versionsnummern (`css/challenge-check.css?v=…`). Nach Änderungen an `css/` oder `js/` einmal ausführen:
+
+```
+node tools/versionieren.js
+```
+
+(`tools/zuordnung-erzeugen.js` macht das automatisch mit.)
+
 ## Aufbau
 
-- `index.html`: die Seite mit allen vier Ansichten (Start mit Namenseingabe, Frage, Auswertung, Ergebnis)
-- `js/quiz.js`: Ablauf des Quiz; `js/namen.js`: Namensabgleich; `js/zufall.js`: gleichverteilte Zufallsauswahl (nur für unbekannte Namen mit `unbekannt: "zufall"`)
-- `js/zuordnung.js`: erzeugte Zuordnung Name → Challenge (nicht von Hand ändern)
-- `tools/zuordnung-erzeugen.js`: erzeugt `js/zuordnung.js` aus der Namensliste
+- `index.html`: die Seite mit allen fünf Ansichten (Start, Matrikelnummer, Frage, Auswertung, Ergebnis)
+- `js/quiz.js`: Ablauf des Quiz; `js/matrikel.js`: Abgleich der Matrikelnummer; `js/zufall.js`: gleichverteilte Zufallsauswahl (nur für unbekannte Nummern mit `unbekannt: "zufall"`)
+- `js/zuordnung.js`: erzeugte Zuordnung Hash → Challenge (nicht von Hand ändern)
+- `tools/`: `zuordnung-erzeugen.js` (Liste → `js/zuordnung.js`), `versionieren.js` (Versionsnummern)
 - `css/challenge-check.css`: Gestaltung; die Farben stehen oben unter `:root`
 - `impressum.html`, `datenschutz.html`: Entwürfe, Angaben in eckigen Klammern ergänzen
 - `fonts/`: lokal eingebundene Schriften (kein Abruf bei Google)

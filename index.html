@@ -10,7 +10,7 @@
   <meta property="og:description" content="Fünf Fragen, eine Challenge: Welche Design-Thinking-Challenge wartet auf dich?">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/challenge-check.css">
+  <link rel="stylesheet" href="css/challenge-check.css?v=f51d65b7">
 </head>
 <body data-screen="start">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -48,33 +48,14 @@
           <h1 id="start-titel">Welche <em>Challenge</em> wartet auf dich?</h1>
           <p class="lead">Beantworte <span data-anzahl>fünf</span> Fragen und finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.</p>
           <p class="fehler" id="fehler" role="alert" hidden></p>
-          <form class="name-form" id="name-form" novalidate autocomplete="off">
-            <div class="feld">
-              <label for="name">Dein Name</label>
-              <input type="text" id="name" name="name" autocomplete="name" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Vor- und Nachname" aria-describedby="name-hinweis name-fehler" required>
-              <p class="feld-hinweis" id="name-hinweis">Bitte gib Vor- und Nachnamen ein.</p>
-              <p class="feld-fehler" id="name-fehler" role="alert" hidden></p>
-            </div>
-
-            <button type="button" class="team-toggle" id="team-toggle" aria-expanded="false" aria-controls="team-feld">
-              <span class="plus" aria-hidden="true"></span>Apply together as a team
-            </button>
-
-            <div class="feld" id="team-feld" hidden>
-              <label for="team-name">Name deiner Kollegin oder deines Kollegen</label>
-              <input type="text" id="team-name" name="team-name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Vor- und Nachname" aria-describedby="team-name-fehler">
-              <p class="feld-fehler" id="team-name-fehler" role="alert" hidden></p>
-            </div>
-
-            <div class="start-aktion">
-              <button type="submit" class="btn btn-neon" id="los">Check starten <span aria-hidden="true">→</span></button>
-              <ul class="fakten" aria-label="Auf einen Blick">
-                <li><strong data-anzahl-zahl>5</strong> Fragen</li>
-                <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
-                <li><strong>1</strong> Challenge</li>
-              </ul>
-            </div>
-          </form>
+          <div class="start-aktion">
+            <button type="button" class="btn btn-neon" id="los">Check starten <span aria-hidden="true">→</span></button>
+            <ul class="fakten" aria-label="Auf einen Blick">
+              <li><strong data-anzahl-zahl>5</strong> Fragen</li>
+              <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
+              <li><strong>1</strong> Challenge</li>
+            </ul>
+          </div>
         </div>
 
         <div class="deko" aria-hidden="true">
@@ -90,7 +71,39 @@
       </div>
     </section>
 
-    <!-- 2. Frage -->
+    <!-- 2. Matrikelnummer -->
+    <section class="screen" id="s-id" aria-labelledby="id-titel" hidden>
+      <div class="frage-wrap">
+        <p class="frage-nr" aria-hidden="true"><span>#</span><span class="von">Matrikelnummer</span></p>
+        <form class="karte" id="id-form" novalidate autocomplete="off">
+          <h2 id="id-titel" tabindex="-1">Wie lautet deine Matrikelnummer?</h2>
+
+          <div class="feld">
+            <label for="matrikel">Deine Matrikelnummer</label>
+            <input type="text" id="matrikel" name="matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="z. B. 1234567" aria-describedby="matrikel-hinweis matrikel-fehler" required>
+            <p class="feld-hinweis" id="matrikel-hinweis">Nur Ziffern. Die Nummer bleibt in deinem Browser und wird nicht gespeichert.</p>
+            <p class="feld-fehler" id="matrikel-fehler" role="alert" hidden></p>
+          </div>
+
+          <button type="button" class="team-toggle" id="team-toggle" aria-expanded="false" aria-controls="team-feld">
+            <span class="plus" aria-hidden="true"></span>Apply together as a team
+          </button>
+
+          <div class="feld" id="team-feld" hidden>
+            <label for="team-matrikel">Matrikelnummer deiner Kollegin oder deines Kollegen</label>
+            <input type="text" id="team-matrikel" name="team-matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="z. B. 7654321" aria-describedby="team-matrikel-fehler">
+            <p class="feld-fehler" id="team-matrikel-fehler" role="alert" hidden></p>
+          </div>
+
+          <div class="id-aktion">
+            <button type="button" class="btn-text" id="id-zurueck">← Zurück</button>
+            <button type="submit" class="btn btn-neon" id="id-weiter">Weiter <span aria-hidden="true">→</span></button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- 3. Frage -->
     <section class="screen" id="s-frage" aria-labelledby="frage-text" hidden>
       <div class="frage-wrap">
         <p class="frage-nr" aria-hidden="true"><span id="nr">01</span><span class="von" id="von">/5</span></p>
@@ -105,7 +118,7 @@
       </div>
     </section>
 
-    <!-- 3. Auswertung -->
+    <!-- 4. Auswertung -->
     <section class="screen" id="s-laden" aria-labelledby="laden-text" hidden>
       <div class="laden">
         <svg class="laden-ring" viewBox="0 0 100 100" aria-hidden="true">
@@ -116,7 +129,7 @@
       </div>
     </section>
 
-    <!-- 4. Ergebnis -->
+    <!-- 5. Ergebnis -->
     <section class="screen" id="s-ergebnis" aria-labelledby="e-titel" hidden>
       <div class="ergebnis">
         <p class="e-kopf" id="e-kopf"></p>
@@ -129,7 +142,7 @@
           <a class="btn btn-navy" id="e-link" href="#" target="_blank" rel="noopener" hidden>Mehr zur Challenge <span aria-hidden="true">↗</span></a>
         </div>
         <div class="aktionen">
-          <button type="button" class="btn btn-neon" id="nochmal">Mit anderem Namen starten</button>
+          <button type="button" class="btn btn-neon" id="nochmal">Mit anderer Matrikelnummer</button>
           <button type="button" class="btn btn-ghost" id="teilen">Ergebnis teilen</button>
         </div>
         <p class="status" id="teilen-status" role="status"></p>
@@ -151,11 +164,11 @@
 
   <canvas id="konfetti" aria-hidden="true"></canvas>
 
-  <script src="js/zufall.js"></script>
-  <script src="js/fragen.js"></script>
-  <script src="js/ergebnisse.js"></script>
-  <script src="js/namen.js"></script>
-  <script src="js/zuordnung.js"></script>
-  <script src="js/quiz.js"></script>
+  <script src="js/zufall.js?v=f2165a11"></script>
+  <script src="js/fragen.js?v=b694b6b7"></script>
+  <script src="js/ergebnisse.js?v=7bf9f22d"></script>
+  <script src="js/matrikel.js?v=14232dd2"></script>
+  <script src="js/zuordnung.js?v=f1b3181a"></script>
+  <script src="js/quiz.js?v=4b3f14c7"></script>
 </body>
 </html>

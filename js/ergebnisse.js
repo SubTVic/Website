@@ -2,10 +2,10 @@
    ERGEBNISSE: HIER STELLST DU EIN, WAS AM ENDE HERAUSKOMMT
    ==========================================================================
 
-   Welche Challenge jemand bekommt, bestimmt der eingegebene Name: Die
-   Zuordnung Name -> Challenge steht (verschlüsselt) in zuordnung.js und wird
-   mit tools/zuordnung-erzeugen.js aus deiner Namensliste erzeugt (siehe README).
-   Die Antworten im Quiz ändern daran nichts.
+   Welche Challenge jemand bekommt, bestimmt die eingegebene Matrikelnummer:
+   Die Zuordnung Matrikelnummer -> Challenge steht (gehasht) in zuordnung.js
+   und wird mit tools/zuordnung-erzeugen.js aus deiner Liste erzeugt (siehe
+   README). Die Antworten im Quiz ändern daran nichts.
 
    So änderst du etwas:
    - Text zwischen den Anführungszeichen "…" ersetzen.
@@ -15,8 +15,8 @@
 
    Felder pro Challenge:
      id            Kurze, eindeutige Kennung (nur Kleinbuchstaben, Ziffern, "-").
-                   Die Namenszuordnung hängt daran. NACH dem Erzeugen der Liste
-                   nicht mehr ändern, den Titel dagegen darfst du jederzeit ändern. Pflicht
+                   Die Zuordnung hängt daran. NACH dem Erzeugen der Liste nicht
+                   mehr ändern, den Titel dagegen darfst du jederzeit ändern. Pflicht
      titel         Name der Challenge (groß, das Erste, was man sieht)       Pflicht
      frage         Leitfrage, z. B. „Wie können wir …?“                       Pflicht
      beschreibung  Worum geht es? Ein bis drei Sätze                           Pflicht
@@ -27,25 +27,24 @@
    siehst du direkt die zweite Challenge, ohne das Quiz durchzuklicken.
    ========================================================================== */
 
-/* Texte rund um das Ergebnis.
-   {vorname} wird durch den Vornamen der Person ersetzt. */
+/* Texte rund um das Ergebnis */
 window.ERGEBNIS_TEXTE = {
-  kopf: "{vorname}, du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
+  kopf: "Du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
   frageLabel: "Die Leitfrage",
   teilenText: "Ich soll beim Design Thinking diese Challenge entwickeln: „{titel}“. Welche ist deine?"
 };
 
-/* Einstellungen und Meldungen rund um die Namenseingabe */
-window.NAMEN_TEXTE = {
-  /* Was passiert, wenn ein Name nicht in der Liste steht?
+/* Einstellungen und Meldungen rund um die Matrikelnummer */
+window.MATRIKEL_TEXTE = {
+  /* Was passiert, wenn eine Matrikelnummer nicht in der Liste steht?
        "fehler": Meldung anzeigen, das Quiz startet nicht (Standard)
        "zufall": trotzdem starten und eine zufällige Challenge ziehen */
   unbekannt: "fehler",
-  einWort: "Das sieht nach nur einem Namen aus. Bitte gib Vor- und Nachnamen ein.",
-  teamEinWort: "Bitte gib auch von deiner Kollegin oder deinem Kollegen Vor- und Nachnamen ein.",
-  nichtGefunden: "Zu diesem Namen haben wir keine Challenge gefunden. Bitte prüfe die Schreibweise von Vor- und Nachname.",
-  keineListe: "Es ist noch keine Namensliste hinterlegt.",
-  technik: "Der Namensabgleich funktioniert in diesem Browser nicht. Bitte öffne die Seite in einem aktuellen Browser."
+  ungueltig: "Bitte gib deine Matrikelnummer ein (nur Ziffern).",
+  teamUngueltig: "Bitte gib auch die Matrikelnummer deiner Kollegin oder deines Kollegen ein (nur Ziffern).",
+  nichtGefunden: "Zu dieser Matrikelnummer haben wir keine Challenge gefunden. Bitte prüfe deine Eingabe.",
+  keineListe: "Es ist noch keine Liste mit Matrikelnummern hinterlegt.",
+  technik: "Der Abgleich funktioniert in diesem Browser nicht. Bitte öffne die Seite in einem aktuellen Browser."
 };
 
 /* Die möglichen Challenges.
