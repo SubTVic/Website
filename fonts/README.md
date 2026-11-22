@@ -1,9 +1,9 @@
 # Schriften
 
-Die Schriften werden lokal ausgeliefert, damit beim Seitenaufruf keine Daten an Google übertragen werden.
+Die Schriften werden lokal ausgeliefert, damit beim Seitenaufruf keine Daten an Google oder andere Anbieter übertragen werden.
 
-- **Bricolage Grotesque** (Überschriften), © The Bricolage Grotesque Project Authors
-- **Instrument Sans** (Fließtext), © The Instrument Sans Project Authors
+- **Space Grotesk** (Überschriften, Buttons, Fließtext), © The Space Grotesk Project Authors
+- **Roboto Condensed** (Kartenüberschriften, Beschriftungen), © Google Inc.
 
-Beide stehen unter der SIL Open Font License 1.1: https://openfontlicense.org
-Quelle: Google Fonts (Teilmengen latin und latin-ext, variable Schriftstärke).
+Beide stehen unter der SIL Open Font License 1.1 (Lizenztexte: `LICENSE-*.txt`, Infos: https://openfontlicense.org).
+Quelle: Fontsource (`@fontsource/space-grotesk`, `@fontsource/roboto-condensed`), Teilmenge „latin“.
