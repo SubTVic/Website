@@ -9,6 +9,9 @@
   var T = window.ERGEBNIS_TEXTE || {};
   var TEXT = {
     kopf: T.kopf || "Du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
+    schonGemacht: T.schonGemacht || "Du hast den Check schon gemacht. Das ist deine Challenge:",
+    schonGemachtOhne: T.schonGemachtOhne || "Du hast den Check schon gemacht.",
+    einmal: T.einmal || "Der Check lässt sich auf diesem Gerät nur einmal machen.",
     frageLabel: T.frageLabel || "Die Leitfrage",
     teilenText: T.teilenText || "Ich soll diese Challenge entwickeln: „{titel}“."
   };
@@ -36,6 +39,14 @@
     "Verstehen. Ideen finden. Bauen. Testen."
   ];
   var ZAHLWORT = ["", "eine", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"];
+
+  /* Einmal-Sperre: Nach dem Abschluss speichert die Seite ein Cookie mit der
+     Kennung der Challenge. Lokal (Datei oder localhost) ist die Sperre aus,
+     damit man beim Bearbeiten beliebig oft testen kann. */
+  var COOKIE = "challenge_check";
+  var COOKIE_TAGE = 365;
+  var LOKAL = window.location.protocol === "file:" || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+  var SPERRE = !LOKAL;
 
   var reduziert = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   var SCREENS = ["s-start", "s-id", "s-frage", "s-laden", "s-ergebnis"];
@@ -117,6 +128,48 @@
     document.querySelectorAll("[data-minuten-einheit]").forEach(function (el) { el.textContent = min === 1 ? "Minute" : "Minuten"; });
   }
 
+  /* ---------- Einmal-Sperre ---------- */
+
+  function leseCookie() {
+    var teile = (document.cookie || "").split("; ");
+    for (var i = 0; i < teile.length; i++) {
+      if (teile[i].indexOf(COOKIE + "=") === 0) {
+        try { return decodeURIComponent(teile[i].slice(COOKIE.length + 1)); } catch (e) { return ""; }
+      }
+    }
+    return null;
+  }
+
+  function schreibeCookie(id) {
+    /* Nur für diese Seite (Pfad des Ordners), nicht für die ganze Domain */
+    var pfad = window.location.pathname.replace(/[^\/]*$/, "") || "/";
+    document.cookie = COOKIE + "=" + encodeURIComponent(id) +
+      "; max-age=" + (COOKIE_TAGE * 24 * 60 * 60) +
+      "; path=" + pfad + "; SameSite=Lax" +
+      (window.location.protocol === "https:" ? "; Secure" : "");
+  }
+
+  /* Kennung der bereits abgeschlossenen Challenge, sonst null */
+  function gesperrtId() { return SPERRE ? leseCookie() : null; }
+
+  /* Ab jetzt gibt es keinen Weg mehr zurück zum Start oder zur Eingabe */
+  function sperreAnwenden() {
+    document.body.setAttribute("data-gesperrt", "");
+    $("pfad-start").hidden = true;
+    $("nochmal").hidden = true;
+    var hinweis = $("e-sperre");
+    hinweis.textContent = TEXT.einmal;
+    hinweis.hidden = false;
+  }
+
+  /* Wer schon fertig ist, sieht nur noch sein Ergebnis */
+  function zeigeGesperrt(id) {
+    window.clearTimeout(timer);
+    var index = -1;
+    for (var i = 0; i < ERGEBNISSE.length; i++) { if (ERGEBNISSE[i].id === id) { index = i; } }
+    zeigeErgebnis(index, "gesperrt");
+  }
+
   /* ---------- Fragen ---------- */
 
   function renderFrage() {
@@ -124,7 +177,7 @@
     $("nr").textContent = pad(aktuell + 1);
     $("von").textContent = "/" + FRAGEN.length;
     $("frage-text").textContent = f.frage;
-    $("zurueck").hidden = aktuell === 0;
+    $("zurueck").textContent = aktuell === 0 ? "← Matrikelnummer ändern" : "← Zurück";
     $("hinweis").textContent = "Tipp: Taste 1 bis " + f.antworten.length;
 
     var liste = $("antworten");
@@ -173,8 +226,9 @@
   }
 
   function zurueck() {
-    if (aktuell === 0 || $("s-frage").hidden) { return; }
+    if ($("s-frage").hidden) { return; }
     window.clearTimeout(timer);
+    if (aktuell === 0) { zeigeId(false); return; }
     aktuell--;
     frageAnzeigen();
   }
@@ -192,17 +246,36 @@
         los(function () { text.textContent = AUSWERTUNG[i]; naechste(); }, 750);
       } else {
         los(function () {
+          var schon = gesperrtId();
+          if (schon !== null) { zeigeGesperrt(schon); return; }
           var index = spieler.ziel >= 0 ? spieler.ziel : window.zufallsIndex(ERGEBNISSE.length);
-          zeigeErgebnis(index, true);
+          zeigeErgebnis(index, "neu");
         }, 900);
       }
     })();
   }
 
-  function zeigeErgebnis(index, mitKonfetti) {
+  /* modus: "neu" (gerade abgeschlossen), "gesperrt" (kommt wieder) oder "vorschau" (nur lokal) */
+  function zeigeErgebnis(index, modus) {
     var e = ERGEBNISSE[index];
     letztesErgebnis = index;
-    $("e-kopf").textContent = TEXT.kopf;
+    if (modus === "neu" && SPERRE) { schreibeCookie(e.id); }
+    if (modus !== "vorschau" && SPERRE) { sperreAnwenden(); }
+
+    var karte = document.querySelector(".karte-ergebnis");
+    if (!e) {
+      /* Die gespeicherte Challenge gibt es nicht mehr: nur den Hinweis zeigen */
+      $("e-kopf").textContent = "";
+      $("e-titel").textContent = TEXT.schonGemachtOhne;
+      karte.hidden = true;
+      $("teilen").hidden = true;
+      $("teilen-status").textContent = "";
+      zeige("s-ergebnis", "e-titel");
+      return;
+    }
+    karte.hidden = false;
+    $("teilen").hidden = false;
+    $("e-kopf").textContent = modus === "gesperrt" ? TEXT.schonGemacht : TEXT.kopf;
     $("e-titel").textContent = e.titel || "";
     $("e-label").textContent = TEXT.frageLabel;
     $("e-frage").textContent = e.frage || "";
@@ -215,7 +288,7 @@
     if (e.link) { link.href = e.link; }
     $("teilen-status").textContent = "";
     zeige("s-ergebnis", "e-titel");
-    if (mitKonfetti) { konfetti(); }
+    if (modus === "neu") { konfetti(); }
   }
 
   function teilen() {
@@ -298,6 +371,8 @@
 
   function absenden() {
     if (sucht) { return; }
+    var schon = gesperrtId();
+    if (schon !== null) { zeigeGesperrt(schon); return; }
     var nummer = $("matrikel").value;
     var teamOffen = !$("team-feld").hidden;
     setzeFehler("matrikel", "");
@@ -339,6 +414,8 @@
   /* wohin: "start" | "id" | "quiz" */
   function neustart(wohin, felderLeeren) {
     window.clearTimeout(timer);
+    var schon = gesperrtId();
+    if (schon !== null) { zeigeGesperrt(schon); return; }
     antworten = [];
     aktuell = 0;
     gesperrt = false;
@@ -440,11 +517,15 @@
       return;
     }
 
-    /* Vorschau: index.html?ergebnis=2 zeigt direkt das zweite Ergebnis */
-    var m = /[?&]ergebnis=(\d+)/.exec(window.location.search);
+    /* Wer den Check schon gemacht hat, sieht nur sein Ergebnis */
+    var schon = gesperrtId();
+    if (schon !== null) { zeigeGesperrt(schon); return; }
+
+    /* Vorschau (nur lokal): index.html?ergebnis=2 zeigt direkt das zweite Ergebnis */
+    var m = LOKAL && /[?&]ergebnis=(\d+)/.exec(window.location.search);
     if (m) {
       var n = parseInt(m[1], 10);
-      if (n >= 1 && n <= ERGEBNISSE.length) { aktuell = FRAGEN.length; zeigeErgebnis(n - 1, false); }
+      if (n >= 1 && n <= ERGEBNISSE.length) { aktuell = FRAGEN.length; zeigeErgebnis(n - 1, "vorschau"); }
     }
   }
 

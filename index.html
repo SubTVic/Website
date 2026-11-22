@@ -10,7 +10,7 @@
   <meta property="og:description" content="Fünf Fragen, eine Challenge: Welche Design-Thinking-Challenge wartet auf dich?">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preload" href="fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/challenge-check.css?v=f51d65b7">
+  <link rel="stylesheet" href="css/challenge-check.css?v=bdf0a138">
 </head>
 <body data-screen="start">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -54,6 +54,7 @@
               <li><strong data-anzahl-zahl>5</strong> Fragen</li>
               <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
               <li><strong>1</strong> Challenge</li>
+              <li><strong>1</strong> Versuch</li>
             </ul>
           </div>
         </div>
@@ -80,8 +81,8 @@
 
           <div class="feld">
             <label for="matrikel">Deine Matrikelnummer</label>
-            <input type="text" id="matrikel" name="matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="z. B. 1234567" aria-describedby="matrikel-hinweis matrikel-fehler" required>
-            <p class="feld-hinweis" id="matrikel-hinweis">Nur Ziffern. Die Nummer bleibt in deinem Browser und wird nicht gespeichert.</p>
+            <input type="text" id="matrikel" name="matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="Nur Ziffern" aria-describedby="matrikel-hinweis matrikel-fehler" required>
+            <p class="feld-hinweis" id="matrikel-hinweis">Nur Ziffern. Die Nummer bleibt in deinem Browser. Den Check kannst du nur einmal machen, bitte prüfe deine Eingabe.</p>
             <p class="feld-fehler" id="matrikel-fehler" role="alert" hidden></p>
           </div>
 
@@ -91,7 +92,7 @@
 
           <div class="feld" id="team-feld" hidden>
             <label for="team-matrikel">Matrikelnummer deiner Kollegin oder deines Kollegen</label>
-            <input type="text" id="team-matrikel" name="team-matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="z. B. 7654321" aria-describedby="team-matrikel-fehler">
+            <input type="text" id="team-matrikel" name="team-matrikel" inputmode="numeric" pattern="[0-9]*" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="Nur Ziffern" aria-describedby="team-matrikel-fehler">
             <p class="feld-fehler" id="team-matrikel-fehler" role="alert" hidden></p>
           </div>
 
@@ -146,6 +147,7 @@
           <button type="button" class="btn btn-ghost" id="teilen">Ergebnis teilen</button>
         </div>
         <p class="status" id="teilen-status" role="status"></p>
+        <p class="e-sperre" id="e-sperre" hidden></p>
       </div>
     </section>
   </main>
@@ -166,9 +168,9 @@
 
   <script src="js/zufall.js?v=f2165a11"></script>
   <script src="js/fragen.js?v=b694b6b7"></script>
-  <script src="js/ergebnisse.js?v=7bf9f22d"></script>
-  <script src="js/matrikel.js?v=14232dd2"></script>
-  <script src="js/zuordnung.js?v=f1b3181a"></script>
-  <script src="js/quiz.js?v=4b3f14c7"></script>
+  <script src="js/ergebnisse.js?v=88f76d5f"></script>
+  <script src="js/matrikel.js?v=96912f67"></script>
+  <script src="js/zuordnung.js?v=7e5abf6d"></script>
+  <script src="js/quiz.js?v=315c9b3a"></script>
 </body>
 </html>

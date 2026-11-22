@@ -287,6 +287,8 @@ main {
 .karte-ergebnis .partner { font-size: .95rem; color: #5a6464; }
 .aktionen { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; margin-top: 2rem; }
 .status { min-height: 1.6em; margin: 1rem 0 0; color: var(--neon); font-weight: 500; }
+.e-sperre { margin: .4rem 0 0; font-size: .95rem; color: rgba(255, 249, 237, .75); }
+body[data-gesperrt] #pfad-rest::before { content: none; }
 
 /* ---------- Laufband ---------- */
 .ticker { background: var(--neon); color: var(--teal); overflow: hidden; border-block: 2px solid var(--teal-tief); white-space: nowrap; }

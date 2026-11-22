@@ -18,13 +18,13 @@
     return null;
   }
 
-  /* Eingabe bereinigen: Leerzeichen, Punkte, Bindestriche entfernen, führende
-     Nullen weglassen. Ergebnis: nur Ziffern (4 bis 12 Stück) oder "" wenn
-     die Eingabe keine gültige Matrikelnummer sein kann. */
+  /* Eingabe bereinigen: Leerzeichen, Punkte, Bindestriche entfernen. Führende
+     Nullen bleiben erhalten (00001 ist eine andere Nummer als 1). Ergebnis:
+     nur Ziffern (4 bis 12 Stück) oder "" wenn die Eingabe keine gültige
+     Matrikelnummer sein kann. */
   function normalisiere(eingabe) {
     var s = String(eingabe == null ? "" : eingabe).replace(/[\s.\-–—_\/]+/g, "");
     if (!/^[0-9]+$/.test(s)) { return ""; }
-    s = s.replace(/^0+/, "");
     return s.length >= 4 && s.length <= 12 ? s : "";
   }
 

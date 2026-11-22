@@ -30,6 +30,9 @@
 /* Texte rund um das Ergebnis */
 window.ERGEBNIS_TEXTE = {
   kopf: "Du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
+  schonGemacht: "Du hast den Check schon gemacht. Das ist deine Challenge:",
+  schonGemachtOhne: "Du hast den Check schon gemacht.",
+  einmal: "Der Check lässt sich auf diesem Gerät nur einmal machen.",
   frageLabel: "Die Leitfrage",
   teilenText: "Ich soll beim Design Thinking diese Challenge entwickeln: „{titel}“. Welche ist deine?"
 };
