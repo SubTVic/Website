@@ -140,18 +140,51 @@ main {
 .btn-navy:focus-visible { outline-color: var(--link); }
 
 /* ---------- Start ---------- */
+#s-start { padding-top: clamp(1.5rem, 4vw, 3rem); }
 .start { display: grid; gap: 3rem; align-items: center; }
 @media (min-width: 900px) { .start { grid-template-columns: 1.15fr .85fr; gap: 2rem; } }
 
 .start h1 {
-  margin: 0 0 1.6rem; font: 700 clamp(3rem, 7.4vw, 6.5rem)/.92 var(--f-kopf);
+  margin: 0 0 1.2rem; font: 700 clamp(3rem, 6.2vw, 5.4rem)/.92 var(--f-kopf);
   letter-spacing: -.045em; color: var(--creme); hyphens: manual; overflow-wrap: break-word;
 }
 .start h1 em { font-style: normal; color: var(--neon); white-space: nowrap; }
-.lead { margin: 0 0 2rem; max-width: 34rem; font-size: clamp(1.1rem, 2vw, 1.3rem); color: rgba(255, 249, 237, .84); }
-.fehler { margin: 0 0 1.5rem; padding: .8rem 1rem; background: var(--orange); color: #fff; border-radius: 4px; font-weight: 500; }
+.lead { margin: 0 0 1.5rem; max-width: 34rem; font-size: clamp(1.1rem, 2vw, 1.3rem); color: rgba(255, 249, 237, .84); }
+.fehler { margin: 0 0 1.5rem; padding: .8rem 1rem; background: #a63513; color: #fff; border-radius: 4px; font-weight: 500; }
 
-.start-aktion { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem 2rem; }
+/* Namenseingabe */
+.name-form { display: grid; gap: 1.1rem; max-width: 38rem; }
+.feld { max-width: 31rem; }
+.feld label {
+  display: block; margin-bottom: .55rem; font: 700 .95rem/1 var(--f-cond); text-transform: uppercase;
+  letter-spacing: .14em; color: var(--neon);
+}
+.feld input {
+  width: 100%; padding: .95rem 1.1rem; font: 500 1.2rem/1.2 var(--f-kopf); color: var(--creme);
+  background: rgba(255, 249, 237, .08); border: 1.5px solid rgba(255, 249, 237, .55); border-radius: 4px;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.feld input::placeholder { color: rgba(255, 249, 237, .5); }
+.feld input:focus { outline: none; border-color: var(--neon); background: rgba(255, 249, 237, .12); box-shadow: 0 0 0 3px rgba(0, 241, 130, .35); }
+.feld input[aria-invalid="true"] { border-color: #ff9a7b; }
+.feld-hinweis { margin: .5rem 0 0; font-size: .95rem; color: rgba(255, 249, 237, .75); }
+.feld-fehler { margin: .6rem 0 0; padding-left: .8rem; border-left: 4px solid var(--orange); color: #ffc9b8; font-weight: 500; }
+
+.team-toggle {
+  justify-self: start; display: inline-flex; align-items: center; gap: .75rem; padding: .7rem 1.05rem; cursor: pointer;
+  background: none; color: var(--creme); border: 1.5px dashed rgba(255, 249, 237, .6); border-radius: 4px;
+  font: 500 1rem/1.2 var(--f-kopf); transition: border-color .15s, color .15s;
+}
+.team-toggle .plus { position: relative; width: 1.05rem; height: 1.05rem; flex: none; transition: transform .2s; }
+.team-toggle .plus::before, .team-toggle .plus::after { content: ""; position: absolute; background: var(--neon); border-radius: 1px; }
+.team-toggle .plus::before { left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; }
+.team-toggle .plus::after { top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; }
+.team-toggle[aria-expanded="true"] { border-style: solid; border-color: var(--neon); }
+.team-toggle[aria-expanded="true"] .plus { transform: rotate(45deg); }
+@media (hover: hover) { .team-toggle:hover { border-color: var(--neon); color: var(--neon); } }
+.btn:disabled { opacity: .6; cursor: progress; }
+
+.start-aktion { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem 2rem; margin-top: .3rem; }
 .fakten { list-style: none; margin: 0; padding: 0; display: flex; gap: 1.4rem; font: 500 1rem/1 var(--f-cond); text-transform: uppercase; letter-spacing: .08em; color: rgba(255, 249, 237, .8); }
 .fakten strong { color: var(--neon); font: 700 1.5rem/1 var(--f-kopf); margin-right: .25rem; letter-spacing: 0; }
 
@@ -284,6 +317,7 @@ main {
   .leiste-innen { gap: 1rem; }
   .segmente { flex-basis: 150px; }
   .btn { width: 100%; }
+  .team-toggle { justify-self: stretch; justify-content: center; }
   .fakten { gap: 1rem; font-size: .9rem; }
   .start { gap: 2rem; }
   .deko { width: min(78%, 320px); }

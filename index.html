@@ -48,14 +48,33 @@
           <h1 id="start-titel">Welche <em>Challenge</em> wartet auf dich?</h1>
           <p class="lead">Beantworte <span data-anzahl>fünf</span> Fragen und finde heraus, welche Design-Thinking-Challenge du entwickeln sollst.</p>
           <p class="fehler" id="fehler" role="alert" hidden></p>
-          <div class="start-aktion">
-            <button type="button" class="btn btn-neon" id="los">Check starten <span aria-hidden="true">→</span></button>
-            <ul class="fakten" aria-label="Auf einen Blick">
-              <li><strong data-anzahl-zahl>5</strong> Fragen</li>
-              <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
-              <li><strong>1</strong> Challenge</li>
-            </ul>
-          </div>
+          <form class="name-form" id="name-form" novalidate autocomplete="off">
+            <div class="feld">
+              <label for="name">Dein Name</label>
+              <input type="text" id="name" name="name" autocomplete="name" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Vor- und Nachname" aria-describedby="name-hinweis name-fehler" required>
+              <p class="feld-hinweis" id="name-hinweis">Bitte gib Vor- und Nachnamen ein.</p>
+              <p class="feld-fehler" id="name-fehler" role="alert" hidden></p>
+            </div>
+
+            <button type="button" class="team-toggle" id="team-toggle" aria-expanded="false" aria-controls="team-feld">
+              <span class="plus" aria-hidden="true"></span>Apply together as a team
+            </button>
+
+            <div class="feld" id="team-feld" hidden>
+              <label for="team-name">Name deiner Kollegin oder deines Kollegen</label>
+              <input type="text" id="team-name" name="team-name" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="go" placeholder="Vor- und Nachname" aria-describedby="team-name-fehler">
+              <p class="feld-fehler" id="team-name-fehler" role="alert" hidden></p>
+            </div>
+
+            <div class="start-aktion">
+              <button type="submit" class="btn btn-neon" id="los">Check starten <span aria-hidden="true">→</span></button>
+              <ul class="fakten" aria-label="Auf einen Blick">
+                <li><strong data-anzahl-zahl>5</strong> Fragen</li>
+                <li><strong data-minuten>1</strong> <span data-minuten-einheit>Minute</span></li>
+                <li><strong>1</strong> Challenge</li>
+              </ul>
+            </div>
+          </form>
         </div>
 
         <div class="deko" aria-hidden="true">
@@ -110,7 +129,7 @@
           <a class="btn btn-navy" id="e-link" href="#" target="_blank" rel="noopener" hidden>Mehr zur Challenge <span aria-hidden="true">↗</span></a>
         </div>
         <div class="aktionen">
-          <button type="button" class="btn btn-neon" id="nochmal">Nochmal spielen</button>
+          <button type="button" class="btn btn-neon" id="nochmal">Mit anderem Namen starten</button>
           <button type="button" class="btn btn-ghost" id="teilen">Ergebnis teilen</button>
         </div>
         <p class="status" id="teilen-status" role="status"></p>
@@ -135,6 +154,8 @@
   <script src="js/zufall.js"></script>
   <script src="js/fragen.js"></script>
   <script src="js/ergebnisse.js"></script>
+  <script src="js/namen.js"></script>
+  <script src="js/zuordnung.js"></script>
   <script src="js/quiz.js"></script>
 </body>
 </html>

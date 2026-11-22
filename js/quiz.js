@@ -8,9 +8,18 @@
   var ERGEBNISSE = Array.isArray(window.ERGEBNISSE) ? window.ERGEBNISSE : [];
   var T = window.ERGEBNIS_TEXTE || {};
   var TEXT = {
-    kopf: T.kopf || "Du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
+    kopf: T.kopf || "{vorname}, du bist perfekt dafür geeignet, diese Challenge zu entwickeln:",
     frageLabel: T.frageLabel || "Die Leitfrage",
     teilenText: T.teilenText || "Ich soll diese Challenge entwickeln: „{titel}“."
+  };
+  var N = window.NAMEN_TEXTE || {};
+  var NAMEN = {
+    unbekannt: N.unbekannt === "zufall" ? "zufall" : "fehler",
+    einWort: N.einWort || "Das sieht nach nur einem Namen aus. Bitte gib Vor- und Nachnamen ein.",
+    teamEinWort: N.teamEinWort || "Bitte gib auch von deiner Kollegin oder deinem Kollegen Vor- und Nachnamen ein.",
+    nichtGefunden: N.nichtGefunden || "Zu diesem Namen haben wir keine Challenge gefunden. Bitte prüfe die Schreibweise.",
+    keineListe: N.keineListe || "Es ist noch keine Namensliste hinterlegt.",
+    technik: N.technik || "Der Namensabgleich funktioniert in diesem Browser nicht."
   };
 
   var AUSWERTUNG = [
@@ -36,6 +45,10 @@
   var gesperrt = false;
   var timer = null;
   var letztesErgebnis = -1;
+  var sucht = false;
+  /* Wer spielt? ziel = Index der festgelegten Challenge (-1 = zufällig).
+     Der Name der Kollegin oder des Kollegen (Team) hat keinen Einfluss. */
+  var spieler = { vorname: "", ziel: -1 };
 
   function $(id) { return document.getElementById(id); }
   function pad(n) { return n < 10 ? "0" + n : String(n); }
@@ -177,7 +190,10 @@
       if (i < AUSWERTUNG.length) {
         los(function () { text.textContent = AUSWERTUNG[i]; naechste(); }, 750);
       } else {
-        los(function () { zeigeErgebnis(window.zufallsIndex(ERGEBNISSE.length), true); }, 900);
+        los(function () {
+          var index = spieler.ziel >= 0 ? spieler.ziel : window.zufallsIndex(ERGEBNISSE.length);
+          zeigeErgebnis(index, true);
+        }, 900);
       }
     })();
   }
@@ -185,7 +201,7 @@
   function zeigeErgebnis(index, mitKonfetti) {
     var e = ERGEBNISSE[index];
     letztesErgebnis = index;
-    $("e-kopf").textContent = TEXT.kopf;
+    $("e-kopf").textContent = kopfText();
     $("e-titel").textContent = e.titel || "";
     $("e-label").textContent = TEXT.frageLabel;
     $("e-frage").textContent = e.frage || "";
@@ -222,14 +238,122 @@
     }
   }
 
+  /* Überschrift über dem Ergebnis; {vorname} fällt weg, wenn es keinen gibt */
+  function kopfText() {
+    var t = TEXT.kopf;
+    if (spieler.vorname) { return t.replace("{vorname}", spieler.vorname); }
+    t = t.replace(/\{vorname\}[,:]?\s*/, "");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  /* ---------- Name und Team ---------- */
+
+  function bereinige(s) { return String(s || "").trim().replace(/\s+/g, " "); }
+
+  function istVollerName(s) { return !!window.Namen && window.Namen.teile(s).length >= 2; }
+
+  /* Vorname fürs Ergebnis: erstes Wort, bei „Nachname, Vorname“ das Wort nach dem Komma */
+  function ermittleVorname(name) {
+    var teil = name.indexOf(",") > -1 ? name.split(",")[1] : name;
+    var wort = bereinige(teil).split(" ")[0] || "";
+    /* Ganz groß oder ganz klein getippt: sauber schreiben (anna-lena -> Anna-Lena).
+       Gemischte Schreibweise bleibt, wie sie ist. */
+    if (wort === wort.toLowerCase() || wort === wort.toUpperCase()) {
+      wort = wort.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, function (_, vor, buchstabe) { return vor + buchstabe.toUpperCase(); });
+    }
+    return wort;
+  }
+
+  function setzeFehler(feld, text) {
+    var box = $(feld + "-fehler");
+    var eingabe = $(feld);
+    box.textContent = text || "";
+    box.hidden = !text;
+    if (text) { eingabe.setAttribute("aria-invalid", "true"); } else { eingabe.removeAttribute("aria-invalid"); }
+  }
+
+  function teamUmschalten() {
+    var oeffnen = $("team-feld").hidden;
+    $("team-feld").hidden = !oeffnen;
+    $("team-toggle").setAttribute("aria-expanded", oeffnen ? "true" : "false");
+    if (oeffnen) {
+      $("team-name").focus();
+    } else {
+      $("team-name").value = "";
+      setzeFehler("team-name", "");
+    }
+  }
+
+  /* Welche Challenge gehört zu diesem Namen? Ergebnis: { ok, index | meldung } */
+  function sucheZiel(name) {
+    var z = window.ZUORDNUNG;
+    var zufall = NAMEN.unbekannt === "zufall";
+    function nichtOk(meldung) { return zufall ? { ok: true, index: -1 } : { ok: false, meldung: meldung }; }
+
+    if (!z || !z.eintraege || !Object.keys(z.eintraege).length) { return Promise.resolve(nichtOk(NAMEN.keineListe)); }
+    if (!window.Namen) { return Promise.resolve({ ok: false, meldung: NAMEN.technik }); }
+    return window.Namen.finde(name, z).then(function (id) {
+      if (id === null) { return nichtOk(NAMEN.nichtGefunden); }
+      for (var i = 0; i < ERGEBNISSE.length; i++) {
+        if (ERGEBNISSE[i].id === id) { return { ok: true, index: i }; }
+      }
+      if (window.console) { console.error("Challenge-ID \"" + id + "\" steht in zuordnung.js, fehlt aber in ergebnisse.js."); }
+      return nichtOk(NAMEN.nichtGefunden);
+    }, function () {
+      return { ok: false, meldung: NAMEN.technik };
+    });
+  }
+
+  function starte() {
+    if (sucht) { return; }
+    var name = bereinige($("name").value);
+    var teamOffen = !$("team-feld").hidden;
+    var team = teamOffen ? bereinige($("team-name").value) : "";
+    setzeFehler("name", "");
+    setzeFehler("team-name", "");
+
+    if (!istVollerName(name)) {
+      setzeFehler("name", NAMEN.einWort);
+      $("name").focus();
+      return;
+    }
+    if (teamOffen && !istVollerName(team)) {
+      setzeFehler("team-name", NAMEN.teamEinWort);
+      $("team-name").focus();
+      return;
+    }
+
+    sucht = true;
+    $("los").disabled = true;
+    sucheZiel(name).then(function (r) {
+      sucht = false;
+      $("los").disabled = false;
+      if (!r.ok) {
+        setzeFehler("name", r.meldung);
+        $("name").focus();
+        return;
+      }
+      spieler = { vorname: ermittleVorname(name), ziel: r.index };
+      neustart(false);
+    });
+  }
+
   /* ---------- Neustart ---------- */
 
-  function neustart(zuStart) {
+  function neustart(zuStart, felderLeeren) {
     window.clearTimeout(timer);
     antworten = [];
     aktuell = 0;
     gesperrt = false;
-    if (zuStart) { zeige("s-start", "start-titel"); } else { frageAnzeigen(); }
+    if (felderLeeren) {
+      $("name").value = "";
+      $("team-name").value = "";
+      setzeFehler("name", "");
+      setzeFehler("team-name", "");
+      if (!$("team-feld").hidden) { teamUmschalten(); }
+      spieler = { vorname: "", ziel: -1 };
+    }
+    if (zuStart) { zeige("s-start", felderLeeren ? "name" : "start-titel"); } else { frageAnzeigen(); }
   }
 
   /* ---------- Konfetti ---------- */
@@ -306,10 +430,13 @@
     fuelleZahlen();
     aktualisiereLeiste("s-start");
 
-    $("los").addEventListener("click", function () { neustart(false); });
+    $("name-form").addEventListener("submit", function (ev) { ev.preventDefault(); starte(); });
+    $("team-toggle").addEventListener("click", teamUmschalten);
+    $("name").addEventListener("input", function () { setzeFehler("name", ""); });
+    $("team-name").addEventListener("input", function () { setzeFehler("team-name", ""); });
     $("zurueck").addEventListener("click", zurueck);
-    $("pfad-start").addEventListener("click", function () { neustart(true); });
-    $("nochmal").addEventListener("click", function () { neustart(false); });
+    $("pfad-start").addEventListener("click", function () { neustart(true, false); });
+    $("nochmal").addEventListener("click", function () { neustart(true, true); });
     $("teilen").addEventListener("click", teilen);
 
     if (fehler) {
