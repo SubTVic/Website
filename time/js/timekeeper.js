@@ -148,7 +148,8 @@
   /* Änderungen des Tages, in Reihenfolge:
      { art: "plus", zeit, id (Dauer-Kennung), ziel (Zeile), plus, abzug: [[id, min], …] }
      { art: "einschub", zeit, eid, titel, dauer, nach (Zeile davor, "" = Anfang), um (Zeitpunkt oder null), abzug }
-     { art: "sync", zeit, id (Zeile) } */
+     { art: "sync", zeit, id (Zeile) }
+     { art: "ende", zeit, id (Dauer-Kennung), ziel (Zeile), plus (Minuten, auch krumm), bis (Zeitpunkt) } */
   var historie = [];
   var stumm = {};     /* Zeilen-Kennung -> true: kein Ton am Ende */
   var tag0 = tagBeginn(jetzt());
@@ -184,7 +185,7 @@
     var kinder = {};
     hist.forEach(function (h) {
       var art = h.art || "plus";
-      if (art === "plus") { d[h.id] = (d[h.id] || 0) + h.plus; }
+      if (art === "plus" || art === "ende") { d[h.id] = (d[h.id] || 0) + h.plus; }
       else if (art === "sync") { anker[h.id] = h.zeit; }
       else if (art === "einschub") { var k = h.nach || ""; (kinder[k] = kinder[k] || []).push(h); }
       (h.abzug || []).forEach(function (a) { d[a[0]] = (d[a[0]] || 0) - a[1]; });
@@ -662,6 +663,7 @@
 
     $("verlaengern").disabled = !kandidaten(lg, t).length;
     $("sync").disabled = !syncKandidaten(lg).length;
+    $("ende-knopf").hidden = lg.phase !== "laeuft";
     $("einschub").disabled = lg.phase === "leer" || lg.phase === "fertig";
     if (document.title !== tabTitel) { document.title = tabTitel; }
 
@@ -778,6 +780,7 @@
   function aenderungText(h) {
     var art = h.art || "plus";
     if (art === "sync") { return uhrzeit(h.zeit) + " · Sync: " + zitat(titelVon(h.id)) + " gestartet"; }
+    if (art === "ende") { return uhrzeit(h.zeit) + " · " + zitat(titelVon(h.ziel || h.id)) + " endet um " + uhrzeit(h.bis); }
     if (art === "einschub") {
       return uhrzeit(h.zeit) + " · " + zitat(h.titel) + " (" + h.dauer + " min) " +
         (h.um != null ? "um " + uhrzeit(h.um) : "nach " + zitat(titelVon(h.nach))) + abzugText(h);
@@ -849,6 +852,7 @@
 
     if (dv && $("d-verl").open) { zeichneDv(false); }
     if ($("d-sync").open) { zeichneSync(); }
+    if (dn && $("d-ende").open) { zeichneEnde(); }
   }
 
   /* Nach jeder Änderung: neu rechnen, speichern, ohne dass für den Moment der Änderung ein Ton kommt */
@@ -1197,6 +1201,74 @@
       ? ", " + eintrag.abzug.map(function (a) { return zitat(titelVon(a[0])) + " −" + a[1]; }).join(", ") + "."
       : ", alles danach rückt nach.";
     melde(text, eintrag);
+  }
+
+  /* ---------- Ende eines laufenden Abschnitts auf eine Uhrzeit legen ---------- */
+
+  var dn = null; /* { zielId, bis (Zeitpunkt) } */
+
+  function oeffneEnde() {
+    var lg = lage(plan, jetzt());
+    if (lg.laufend < 0) { return; }
+    var x = plan[lg.laufend];
+    dn = { zielId: x.id, bis: Math.round(x.ende / MIN) * MIN };
+    setzeText($("dn-titel"), zitat(slotTitel(x)) + " endet um …");
+    $("dn-zeit").value = uhrzeit(dn.bis);
+    zeichneEnde();
+    $("d-ende").showModal();
+  }
+
+  function dnEintrag() {
+    var x = slotVon(dn.zielId);
+    if (!x) { return null; }
+    return { art: "ende", zeit: jetzt(), id: x.dauerId, ziel: x.id, plus: (dn.bis - x.ende) / MIN, bis: dn.bis };
+  }
+
+  function zeichneEnde() {
+    var info = $("dn-info");
+    var x = slotVon(dn.zielId);
+    var t = jetzt();
+    var ok = false;
+    var text;
+    if (!x || x.ende <= t) {
+      text = "Dieser Abschnitt läuft nicht mehr.";
+    } else if (dn.bis <= t) {
+      text = "Die Uhrzeit muss nach jetzt (" + uhrzeit(t) + ") liegen.";
+    } else {
+      var m = Math.round((dn.bis - x.ende) / MIN);
+      if (!m) {
+        text = "Unverändert.";
+      } else {
+        ok = true;
+        var neu = berechne(historie.concat([dnEintrag()]));
+        var teA = tagesende(plan).ende;
+        var teN = tagesende(neu).ende;
+        var dt = Math.round((teN - teA) / MIN);
+        text = versatz(m) + " · " + (dt ? "Tag endet " + uhrzeit(teN) : "Tagesende bleibt " + uhrzeit(teA));
+      }
+    }
+    info.className = "dn-info" + (ok || text === "Unverändert." ? "" : " fehler");
+    setzeText(info, text);
+    $("dn-ok").disabled = !ok;
+  }
+
+  function dnSetzeZeit(bis) {
+    dn.bis = bis;
+    $("dn-zeit").value = uhrzeit(bis);
+    zeichneEnde();
+  }
+
+  function dnUebernehmen() {
+    if (!dn) { return; }
+    zeichneEnde();
+    if ($("dn-ok").disabled) { return; }
+    var eintrag = dnEintrag();
+    var x = slotVon(dn.zielId);
+    var m = Math.round(eintrag.plus);
+    historie.push(eintrag);
+    $("d-ende").close();
+    geaendert();
+    melde(zitat(slotTitel(x)) + " endet um " + uhrzeit(eintrag.bis) + " (" + versatz(m) + "), alles danach rückt nach.", eintrag);
   }
 
   /* ---------- Sync: „Das startet jetzt“ ---------- */
@@ -1577,6 +1649,20 @@
     $("dv-abbrechen").addEventListener("click", function () { $("d-verl").close(); });
     $("d-verl").addEventListener("close", function () { dv = null; });
 
+    /* Dialog Ende festlegen */
+    $("ende-knopf").addEventListener("click", oeffneEnde);
+    $("dn-zeit").addEventListener("input", function () {
+      var m = zuMinuten(this.value);
+      if (dn && m != null) { dn.bis = tag0 + m * MIN; zeichneEnde(); }
+    });
+    $("dn-reihe").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("button[data-d]") : null;
+      if (b && dn) { dnSetzeZeit(dn.bis + Number(b.getAttribute("data-d")) * MIN); }
+    });
+    $("dn-ok").addEventListener("click", dnUebernehmen);
+    $("dn-abbrechen").addEventListener("click", function () { $("d-ende").close(); });
+    $("d-ende").addEventListener("close", function () { dn = null; });
+
     /* Dialog Sync */
     $("ds-liste").addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest(".sync-zeile") : null;
@@ -1585,7 +1671,7 @@
     $("ds-abbrechen").addEventListener("click", function () { $("d-sync").close(); });
 
     /* Klick auf den dunklen Hintergrund schließt die Dialoge */
-    ["d-verl", "d-einst", "d-sync"].forEach(function (id) {
+    ["d-verl", "d-einst", "d-sync", "d-ende"].forEach(function (id) {
       $(id).addEventListener("click", function (e) { if (e.target === this) { this.close(); } });
     });
 
