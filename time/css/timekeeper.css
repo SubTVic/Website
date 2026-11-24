@@ -201,6 +201,25 @@ body.knapp .balken i { background: var(--knapp); }
 body:not([data-phase="laeuft"]) .balken { visibility: hidden; height: 0; margin: .8rem 0 0; }
 
 .j-zeit { margin: 0; font-size: 1.05rem; color: rgba(255, 249, 237, .85); }
+.j-zeit-reihe { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.ende-knopf {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .75rem; cursor: pointer;
+  background: transparent; color: var(--creme); border: 1.5px solid rgba(255, 249, 237, .5); border-radius: 2rem;
+  font: 700 .85rem/1.2 var(--f-cond); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap;
+}
+.ende-knopf .ico { width: 1rem; height: 1rem; }
+@media (hover: hover) { .ende-knopf:hover { background: var(--creme); color: var(--teal); } }
+body.fokus .j-zeit-reihe { justify-content: center; }
+.ende-reihe { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: .45rem; align-items: center; }
+.ende-reihe button {
+  height: 3.4rem; min-width: 3rem; cursor: pointer; border: 1.5px solid rgba(0, 66, 66, .35); border-radius: 4px;
+  background: #fff; color: var(--teal); font: 700 1.1rem/1 var(--f-kopf);
+}
+.ende-reihe button:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+@media (hover: hover) { .ende-reihe button:hover { background: rgba(0, 241, 130, .2); border-color: var(--teal); } }
+.zeit-gross { height: 3.4rem; text-align: center; font: 700 1.6rem/1 var(--f-kopf); font-variant-numeric: tabular-nums; padding: .3rem; }
+.dn-info { margin: .9rem 0 0; min-height: 1.4em; font-weight: 700; color: var(--navy); }
+.dn-info.fehler { color: #8f2a0d; }
 .j-zeit .verzug { color: var(--knapp); font-weight: 700; }
 
 .j-aktionen { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.6rem; }
@@ -532,7 +551,7 @@ body.fokus .danach-titel { font-size: clamp(1.1rem, min(2.6vw, 4.5vh), 2rem); }
   body.fokus .cd-zahl { font-size: min(30vw, 38vh); }
   body.fokus .j-aktionen .btn { padding: .5rem .9rem; font-size: .95rem; }
 }
-body.fokus #einst-oeffnen, body.fokus #ton-schnell { display: none; }
+body.fokus #einst-oeffnen, body.fokus #ton-schnell, body.fokus .ende-knopf { display: none; }
 body.fokus .meldungen { display: none; }
 body.fokus .j-aktionen { opacity: .65; transition: opacity .2s; }
 body.fokus .j-aktionen:hover, body.fokus .j-aktionen:focus-within { opacity: 1; }

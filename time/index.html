@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=b4fdc393">
+  <link rel="stylesheet" href="css/timekeeper.css?v=98b022a7">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -65,7 +65,13 @@
           <p class="cd-zahl" id="j-zahl">--:--</p>
         </div>
         <div class="balken" id="j-balken" aria-hidden="true"><i id="j-fuell"></i></div>
-        <p class="j-zeit" id="j-zeit"></p>
+        <div class="j-zeit-reihe">
+          <p class="j-zeit" id="j-zeit"></p>
+          <button type="button" class="ende-knopf" id="ende-knopf" hidden>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>
+            Ende festlegen
+          </button>
+        </div>
 
         <div class="j-aktionen">
           <button type="button" class="btn btn-neon" id="verlaengern">
@@ -185,6 +191,31 @@
             <button type="button" class="info-stern gross" id="dv-stern" aria-expanded="false" aria-controls="dv-fazit" aria-label="Was sich ändert"><span class="stern stern-teal" aria-hidden="true"></span></button>
             <button type="button" class="btn btn-neon" id="dv-ok">Übernehmen</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Ende festlegen -->
+  <dialog class="sheet" id="d-ende" aria-labelledby="dn-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Ende festlegen</p>
+        <h2 id="dn-titel"></h2>
+        <label class="feld-label" for="dn-zeit">Endet um</label>
+        <div class="ende-reihe" id="dn-reihe">
+          <button type="button" data-d="-5" aria-label="5 Minuten früher">−5</button>
+          <button type="button" data-d="-1" aria-label="1 Minute früher">−1</button>
+          <input type="time" id="dn-zeit" class="auswahl zeit-gross" step="60" required>
+          <button type="button" data-d="1" aria-label="1 Minute später">+1</button>
+          <button type="button" data-d="5" aria-label="5 Minuten später">+5</button>
+        </div>
+        <p class="dn-info" id="dn-info" aria-live="polite"></p>
+      </div>
+      <div class="sheet-fuss">
+        <div class="sheet-knoepfe">
+          <button type="button" class="btn-text" id="dn-abbrechen">Abbrechen</button>
+          <button type="button" class="btn btn-neon" id="dn-ok">Übernehmen</button>
         </div>
       </div>
     </div>
@@ -315,6 +346,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=c45ec1f7"></script>
+  <script src="js/timekeeper.js?v=c44e5a48"></script>
 </body>
 </html>
