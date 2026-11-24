@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=c937319e">
+  <link rel="stylesheet" href="css/timekeeper.css?v=d5b4d61d">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -126,6 +126,13 @@
             <button type="button" class="btn-text" id="rueckgaengig">Letzte rückgängig</button>
             <button type="button" class="btn-text" id="alle-zurueck">Alle zurücksetzen</button>
           </div>
+        </div>
+
+        <div class="schluss-reihe">
+          <button type="button" class="btn btn-navy btn-klein" id="schluss-knopf">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>
+            Tag beenden &amp; Bericht
+          </button>
         </div>
       </section>
     </div>
@@ -250,6 +257,31 @@
         <div class="sheet-knoepfe">
           <button type="button" class="btn-text" id="dp-abbrechen">Abbrechen</button>
           <button type="button" class="btn btn-neon" id="dp-ok">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Tag beenden -->
+  <dialog class="sheet" id="d-schluss" aria-labelledby="ds2-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Tag beenden</p>
+        <h2 id="ds2-titel">Tagesbericht</h2>
+        <p class="dn-info" id="ds2-info"></p>
+        <div class="knopf-spalte">
+          <button type="button" class="btn btn-neon" id="ds2-beenden">Tag jetzt beenden</button>
+          <button type="button" class="btn btn-navy" id="ds2-csv">Als CSV herunterladen (Excel)</button>
+          <button type="button" class="btn btn-navy" id="ds2-kopieren">Bericht kopieren</button>
+          <button type="button" class="btn btn-navy" id="ds2-teilen">Bericht teilen</button>
+          <button type="button" class="btn-text" id="ds2-wieder" hidden>Tag wieder aufnehmen</button>
+        </div>
+        <p class="dn-info" id="ds2-status" role="status"></p>
+      </div>
+      <div class="sheet-fuss">
+        <div class="sheet-knoepfe">
+          <span></span>
+          <button type="button" class="btn-text" id="ds2-schliessen">Schließen</button>
         </div>
       </div>
     </div>
@@ -392,6 +424,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=26c7d807"></script>
+  <script src="js/timekeeper.js?v=79665dd5"></script>
 </body>
 </html>
