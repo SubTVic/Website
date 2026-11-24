@@ -149,7 +149,8 @@
      { art: "plus", zeit, id (Dauer-Kennung), ziel (Zeile), plus, abzug: [[id, min], …] }
      { art: "einschub", zeit, eid, titel, dauer, nach (Zeile davor, "" = Anfang), um (Zeitpunkt oder null), abzug }
      { art: "sync", zeit, id (Zeile) }
-     { art: "ende", zeit, id (Dauer-Kennung), ziel (Zeile), plus (Minuten, auch krumm), bis (Zeitpunkt) } */
+     { art: "ende", zeit, id (Dauer-Kennung), ziel (Zeile), plus (Minuten, auch krumm), bis (Zeitpunkt) }
+     { art: "plan", zeit, id (Dauer-Kennung), ziel (Zeile), titel, typ, plus (Minuten), vorher, nachher } */
   var historie = [];
   var stumm = {};     /* Zeilen-Kennung -> true: kein Ton am Ende */
   var tag0 = tagBeginn(jetzt());
@@ -183,9 +184,11 @@
     var d = {};
     var anker = {};
     var kinder = {};
+    var umbenannt = {};
     hist.forEach(function (h) {
       var art = h.art || "plus";
-      if (art === "plus" || art === "ende") { d[h.id] = (d[h.id] || 0) + h.plus; }
+      if (art === "plus" || art === "ende" || art === "plan") { d[h.id] = (d[h.id] || 0) + (h.plus || 0); }
+      if (art === "plan") { umbenannt[h.id] = { titel: h.titel, typ: h.typ }; }
       else if (art === "sync") { anker[h.id] = h.zeit; }
       else if (art === "einschub") { var k = h.nach || ""; (kinder[k] = kinder[k] || []).push(h); }
       (h.abzug || []).forEach(function (a) { d[a[0]] = (d[a[0]] || 0) - a[1]; });
@@ -276,7 +279,12 @@
 
     folge("");
     ablauf.abschnitte.forEach(basis);
-    res.forEach(function (x, i) { x.i = i; x.dauer = Math.max(0, x.ende - x.start) / MIN; });
+    res.forEach(function (x, i) {
+      x.i = i;
+      x.dauer = Math.max(0, x.ende - x.start) / MIN;
+      var u = umbenannt[x.dauerId];
+      if (u) { x.a = Object.assign({}, x.a, { titel: u.titel || x.a.titel, typ: u.typ != null ? u.typ : x.a.typ }); }
+    });
     return res;
   }
 
@@ -717,6 +725,13 @@
       var zustand = !zaehlt(x) ? "entfaellt" : i === lg.laufend ? "laeuft" : x.ende <= t ? "vorbei" : "kommt";
       var li = el("li", "zeile " + zustand + (x.art === "einschub" ? " einschub" : ""));
       if (zustand === "laeuft") { li.setAttribute("aria-current", "step"); }
+      /* Planen: nur was noch kommt (auch Entfallenes in der Zukunft, um es zurückzuholen) */
+      if (x.start > t && x.teil !== 1) {
+        li.classList.add("planbar");
+        li.setAttribute("data-plan", x.id);
+        li.tabIndex = 0;
+        li.setAttribute("aria-label", slotTitel(x) + ", " + uhrzeit(x.start) + ". Antippen zum Planen.");
+      }
 
       var zeit = el("div", "z-zeit");
       zeit.appendChild(el("span", "z-start", uhrzeit(x.start)));
@@ -788,6 +803,13 @@
   function aenderungText(h) {
     var art = h.art || "plus";
     if (art === "sync") { return uhrzeit(h.zeit) + " · Sync: " + zitat(titelVon(h.id)) + " gestartet"; }
+    if (art === "plan") {
+      var teile = [];
+      if (h.alterTitel && h.titel !== h.alterTitel) { teile.push("heißt jetzt " + zitat(h.titel)); }
+      if (h.alterTyp != null && h.typ !== h.alterTyp) { teile.push("Typ " + (h.typ || "keiner")); }
+      if (h.plus) { teile.push(h.nachher === 0 ? "entfällt" : h.vorher + " → " + h.nachher + " min"); }
+      return uhrzeit(h.zeit) + " · Geplant: " + zitat(h.alterTitel || titelVon(h.ziel || h.id)) + " " + (teile.join(", ") || "unverändert");
+    }
     if (art === "ende") { return uhrzeit(h.zeit) + " · " + zitat(titelVon(h.ziel || h.id)) + " endet um " + uhrzeit(h.bis); }
     if (art === "einschub") {
       return uhrzeit(h.zeit) + " · " + zitat(h.titel) + " (" + h.dauer + " min) " +
@@ -1279,6 +1301,74 @@
     melde(zitat(slotTitel(x)) + " endet um " + uhrzeit(eintrag.bis) + " (" + versatz(m) + "), alles danach rückt nach.", eintrag);
   }
 
+  /* ---------- Planen: kommende Abschnitte im Ablauf ändern ---------- */
+
+  var dp = null; /* { zielId, dauer, sig } */
+  var TYP_VORSCHLAEGE = ["Input", "Aktion", "Pause / Mittag", "Übergang", "Puffer", "Check-in/out, Retro", "Nur Coaches", "Einschub"];
+
+  function oeffnePlan(id) {
+    var x = slotVon(id);
+    if (!x || x.start <= jetzt()) { return; }
+    dp = { zielId: id, dauer: Math.round(x.dauer) };
+    setzeText($("dp-titel"), zitat(slotTitel(x)));
+    $("dp-name").value = x.a.titel;
+    var sel = $("dp-typ");
+    sel.textContent = "";
+    var typen = TYP_VORSCHLAEGE.slice();
+    ablauf.abschnitte.forEach(function (a) { if (a.typ && typen.indexOf(a.typ) < 0) { typen.push(a.typ); } });
+    if (x.a.typ && typen.indexOf(x.a.typ) < 0) { typen.push(x.a.typ); }
+    [""].concat(typen).forEach(function (ty) { var o = el("option", "", ty || "(kein Typ)"); o.value = ty; sel.appendChild(o); });
+    sel.value = x.a.typ || "";
+    $("dp-dauer").value = String(dp.dauer);
+    zeichnePlan();
+    $("d-plan").showModal();
+  }
+
+  function dpEintrag() {
+    var x = slotVon(dp.zielId);
+    if (!x) { return null; }
+    return {
+      art: "plan", zeit: jetzt(), id: x.dauerId, ziel: x.id,
+      titel: sauber($("dp-name").value) || x.a.titel, typ: $("dp-typ").value,
+      alterTitel: x.a.titel, alterTyp: x.a.typ || "",
+      plus: dp.dauer - Math.round(x.dauer), vorher: Math.round(x.dauer), nachher: dp.dauer
+    };
+  }
+
+  function zeichnePlan() {
+    var x = slotVon(dp.zielId);
+    if (!x || x.start <= jetzt()) { $("d-plan").close(); return; }
+    var e = dpEintrag();
+    var neu = berechne(historie.concat([e]));
+    var nx = slotVon(dp.zielId, neu);
+    var teA = tagesende(plan).ende;
+    var teN = tagesende(neu).ende;
+    var dt = Math.round((teN - teA) / MIN);
+    var text = (dp.dauer === 0 ? "Entfällt" : uhrzeit(nx.start) + "–" + uhrzeit(nx.ende)) +
+      " · " + (dt ? "Tag endet " + uhrzeit(teN) + " (" + versatz(dt) + ")" : "Tagesende bleibt " + uhrzeit(teA));
+    setzeText($("dp-info"), text);
+    $("dp-weg").hidden = dp.dauer === 0;
+    $("dp-zurueck").hidden = !(dp.dauer === 0 && x.a.dauer > 0);
+    var geaendertJa = e.plus !== 0 || e.titel !== e.alterTitel || e.typ !== e.alterTyp;
+    $("dp-ok").disabled = !geaendertJa;
+  }
+
+  function dpSetzeDauer(n) {
+    dp.dauer = Math.max(0, Math.min(600, Math.round(n) || 0));
+    $("dp-dauer").value = String(dp.dauer);
+    zeichnePlan();
+  }
+
+  function dpUebernehmen() {
+    if (!dp) { return; }
+    var e = dpEintrag();
+    if (!e) { return; }
+    historie.push(e);
+    $("d-plan").close();
+    geaendert();
+    melde("Geplant: " + aenderungText(e).replace(/^.*? · Geplant: /, "") + ".", e);
+  }
+
   /* ---------- Sync: „Das startet jetzt“ ---------- */
 
   var syncSig = "";
@@ -1645,7 +1735,11 @@
 
     $("liste").addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest(".glocke") : null;
-      if (!b) { return; }
+      if (!b) {
+        var zeile = e.target.closest ? e.target.closest("[data-plan]") : null;
+        if (zeile) { oeffnePlan(zeile.getAttribute("data-plan")); }
+        return;
+      }
       var id = b.getAttribute("data-id");
       if (stumm[id]) { delete stumm[id]; } else { stumm[id] = true; }
       speichereStumm();
@@ -1654,6 +1748,24 @@
       var neu = $("liste").querySelector('.glocke[data-id="' + attrSicher(id) + '"]');
       if (neu) { neu.focus(); }
     });
+    $("liste").addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.key === " ") && e.target.hasAttribute && e.target.hasAttribute("data-plan")) {
+        e.preventDefault();
+        oeffnePlan(e.target.getAttribute("data-plan"));
+      }
+    });
+    $("dp-name").addEventListener("input", function () { if (dp) { zeichnePlan(); } });
+    $("dp-typ").addEventListener("change", function () { if (dp) { zeichnePlan(); } });
+    $("dp-dauer").addEventListener("input", function () { if (dp && this.value !== "") { dp.dauer = Math.max(0, Math.round(Number(this.value)) || 0); zeichnePlan(); } });
+    $("dp-reihe").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("button[data-d]") : null;
+      if (b && dp) { dpSetzeDauer(dp.dauer + Number(b.getAttribute("data-d"))); }
+    });
+    $("dp-weg").addEventListener("click", function () { if (dp) { dpSetzeDauer(0); } });
+    $("dp-zurueck").addEventListener("click", function () { var x = dp && slotVon(dp.zielId); if (x) { dpSetzeDauer(x.a.dauer || 5); } });
+    $("dp-ok").addEventListener("click", dpUebernehmen);
+    $("dp-abbrechen").addEventListener("click", function () { $("d-plan").close(); });
+    $("d-plan").addEventListener("close", function () { dp = null; });
     $("aend-liste").addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest(".aend-x") : null;
       if (!b) { return; }
@@ -1710,7 +1822,7 @@
     $("ds-abbrechen").addEventListener("click", function () { $("d-sync").close(); });
 
     /* Klick auf den dunklen Hintergrund schließt die Dialoge */
-    ["d-verl", "d-einst", "d-sync", "d-ende"].forEach(function (id) {
+    ["d-verl", "d-einst", "d-sync", "d-ende", "d-plan"].forEach(function (id) {
       $(id).addEventListener("click", function (e) { if (e.target === this) { this.close(); } });
     });
 

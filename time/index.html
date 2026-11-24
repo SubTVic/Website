@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=a97639bc">
+  <link rel="stylesheet" href="css/timekeeper.css?v=4846131c">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -111,9 +111,12 @@
       <!-- Ablauf -->
       <section class="karte ablauf" aria-labelledby="ablauf-titel">
         <div class="ablauf-kopf">
-          <h2 id="ablauf-titel">Ablauf</h2>
+          <h2 class="mit-stern" id="ablauf-titel">Ablauf
+            <button type="button" class="info-stern" aria-expanded="false" aria-controls="ablauf-hilfe" aria-label="Erklärung anzeigen"><span class="stern stern-teal" aria-hidden="true"></span></button>
+          </h2>
           <p class="tagesende" id="tagesende"></p>
         </div>
+        <p class="blase" id="ablauf-hilfe" hidden>Tippe auf einen Abschnitt, der noch kommt, um ihn zu planen: Name, Typ, Dauer oder streichen. Alles danach rückt nach. Live-Änderungen (Sync, Verlängern, Energizer, Ende) gehen oben.</p>
         <ol class="liste" id="liste"></ol>
 
         <div class="aenderungen" id="aenderungen" hidden>
@@ -216,6 +219,45 @@
         <div class="sheet-knoepfe">
           <button type="button" class="btn-text" id="dn-abbrechen">Abbrechen</button>
           <button type="button" class="btn btn-neon" id="dn-ok">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Planen -->
+  <dialog class="sheet" id="d-plan" aria-labelledby="dp-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Ablauf planen</p>
+        <h2 id="dp-titel"></h2>
+        <div class="zwei-felder">
+          <div>
+            <label class="feld-label" for="dp-name">Name</label>
+            <input type="text" id="dp-name" class="auswahl" maxlength="80" autocomplete="off">
+          </div>
+          <div>
+            <label class="feld-label" for="dp-typ">Typ</label>
+            <select id="dp-typ" class="auswahl"></select>
+          </div>
+        </div>
+        <label class="feld-label" for="dp-dauer">Dauer (Minuten)</label>
+        <div class="ende-reihe" id="dp-reihe">
+          <button type="button" data-d="-5" aria-label="5 Minuten kürzer">−5</button>
+          <button type="button" data-d="-1" aria-label="1 Minute kürzer">−1</button>
+          <input type="number" id="dp-dauer" class="auswahl zeit-gross" min="0" max="600" step="1" inputmode="numeric">
+          <button type="button" data-d="1" aria-label="1 Minute länger">+1</button>
+          <button type="button" data-d="5" aria-label="5 Minuten länger">+5</button>
+        </div>
+        <p class="dn-info" id="dp-info" aria-live="polite"></p>
+        <div class="knopf-reihe">
+          <button type="button" class="btn-text" id="dp-weg">Abschnitt streichen</button>
+          <button type="button" class="btn-text" id="dp-zurueck" hidden>Wieder aufnehmen</button>
+        </div>
+      </div>
+      <div class="sheet-fuss">
+        <div class="sheet-knoepfe">
+          <button type="button" class="btn-text" id="dp-abbrechen">Abbrechen</button>
+          <button type="button" class="btn btn-neon" id="dp-ok">Übernehmen</button>
         </div>
       </div>
     </div>
@@ -348,6 +390,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=b29d6314"></script>
+  <script src="js/timekeeper.js?v=14ee7f75"></script>
 </body>
 </html>
