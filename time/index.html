@@ -116,7 +116,7 @@
           </h2>
           <p class="tagesende" id="tagesende"></p>
         </div>
-        <p class="blase" id="ablauf-hilfe" hidden>Tippe auf einen Abschnitt, der noch kommt, um ihn zu planen: Name, Typ, Dauer oder streichen. Alles danach rückt nach. Live-Änderungen (Sync, Verlängern, Energizer, Ende) gehen oben.</p>
+        <p class="blase" id="ablauf-hilfe" hidden>Tippe auf einen Abschnitt, der noch kommt, um seine Start- und Endzeit zu ändern oder ihn zu streichen. Alles danach rückt nach. Live-Änderungen (Sync, Verlängern, Energizer, Ende) gehen oben.</p>
         <ol class="liste" id="liste"></ol>
 
         <div class="aenderungen" id="aenderungen" hidden>
@@ -230,16 +230,6 @@
       <div class="sheet-body">
         <p class="sheet-mini">Ablauf planen</p>
         <h2 id="dp-titel"></h2>
-        <div class="zwei-felder">
-          <div>
-            <label class="feld-label" for="dp-name">Name</label>
-            <input type="text" id="dp-name" class="auswahl" maxlength="80" autocomplete="off">
-          </div>
-          <div>
-            <label class="feld-label" for="dp-typ">Typ</label>
-            <select id="dp-typ" class="auswahl"></select>
-          </div>
-        </div>
         <div class="zwei-felder gleich">
           <div>
             <label class="feld-label" for="dp-von">Start</label>
@@ -392,6 +382,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=3957c182"></script>
+  <script src="js/timekeeper.js?v=bc28f28e"></script>
 </body>
 </html>
