@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=77fdfc15">
+  <link rel="stylesheet" href="css/timekeeper.css?v=b4fdc393">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -22,7 +22,13 @@
         <span class="stern stern-neon" aria-hidden="true"></span>
         <span>Timekeeper</span>
       </a>
-      <span class="kopf-rechts" id="kopf-titel"></span>
+      <div class="kopf-box">
+        <span class="kopf-rechts" id="kopf-titel"></span>
+        <button type="button" class="ton-pille" id="ton-hinweis" hidden>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+          Ton aktivieren
+        </button>
+      </div>
     </div>
   </header>
 
@@ -36,7 +42,7 @@
   <div class="probe" id="probe" hidden>
     <div class="wrap probe-innen">
       <p id="probe-text"></p>
-      <a href="./">Probelauf beenden</a>
+      <a href="./">Beenden</a>
     </div>
   </div>
 
@@ -66,6 +72,14 @@
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Verlängern
           </button>
+          <button type="button" class="btn btn-creme" id="sync">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.6M4 4v4.5h4.5M4 13a8 8 0 0 0 14.3 4.6M20 20v-4.5h-4.5"/></svg>
+            Sync
+          </button>
+          <button type="button" class="btn btn-ghost btn-klein" id="einschub">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>
+            Energizer
+          </button>
           <button type="button" class="btn btn-ghost btn-klein" id="ton-schnell" aria-pressed="true">
             <svg class="ico ico-an" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>
             <svg class="ico ico-aus" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/><path d="M4 4l16 16"/></svg>
@@ -77,14 +91,9 @@
           </button>
           <button type="button" class="btn btn-ghost btn-klein" id="einst-oeffnen">
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
-            Einstellungen
+            Optionen
           </button>
         </div>
-
-        <button type="button" class="ton-hinweis" id="ton-hinweis" hidden>
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
-          <span>Ton ist an. Tippe hier einmal, damit dein Browser ihn abspielen darf.</span>
-        </button>
 
         <div class="danach" id="danach" hidden>
           <p class="mini mini-hell" id="danach-label">Danach</p>
@@ -129,7 +138,7 @@
   <dialog class="sheet" id="d-verl" aria-labelledby="dv-titel">
     <div class="sheet-innen">
       <div class="sheet-body">
-        <p class="sheet-mini">Verlängern</p>
+        <p class="sheet-mini" id="dv-mini">Verlängern</p>
         <h2 id="dv-titel"></h2>
 
         <fieldset class="gruppe" id="dv-welcher" hidden>
@@ -137,8 +146,19 @@
           <div class="wahl-reihe" id="dv-welcher-opts"></div>
         </fieldset>
 
+        <div class="gruppe zwei-felder" id="dv-einschub-felder" hidden>
+          <div>
+            <label class="feld-label" for="dv-name">Was?</label>
+            <input type="text" id="dv-name" class="auswahl" maxlength="40" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label class="feld-label" for="dv-wann">Wann?</label>
+            <select id="dv-wann" class="auswahl"></select>
+          </div>
+        </div>
+
         <fieldset class="gruppe">
-          <legend>Um wie viele Minuten?</legend>
+          <legend id="dv-min-legend">Um wie viele Minuten?</legend>
           <div class="minuten" id="dv-min">
             <input type="radio" name="dv-plus" id="dv-p1" value="1"><label for="dv-p1">+1</label>
             <input type="radio" name="dv-plus" id="dv-p2" value="2"><label for="dv-p2">+2</label>
@@ -149,17 +169,41 @@
         </fieldset>
 
         <fieldset class="gruppe">
-          <legend>Wo nimmst du die Zeit weg?</legend>
-          <p class="hilfe">Tippe einen späteren Abschnitt an, dann wird die ganze Zeit dort abgezogen. Mit − und + kannst du sie aufteilen. Ohne Auswahl verschiebt sich alles danach.</p>
+          <legend class="mit-stern">Wo nimmst du die Zeit weg?
+            <button type="button" class="info-stern" aria-expanded="false" aria-controls="dv-hilfe" aria-label="Erklärung anzeigen"><span class="stern stern-teal" aria-hidden="true"></span></button>
+          </legend>
+          <p class="blase" id="dv-hilfe" hidden>Antippen: die ganze Zeit dort wegnehmen. − und +: aufteilen. Nichts gewählt: alles danach verschiebt sich.</p>
           <ul class="dv-liste" id="dv-liste"></ul>
         </fieldset>
       </div>
 
       <div class="sheet-fuss">
-        <p class="dv-fazit" id="dv-fazit" aria-live="polite"></p>
+        <p class="blase blase-fuss" id="dv-fazit" hidden></p>
         <div class="sheet-knoepfe">
           <button type="button" class="btn-text" id="dv-abbrechen">Abbrechen</button>
-          <button type="button" class="btn btn-neon" id="dv-ok">Übernehmen</button>
+          <div class="fuss-rechts">
+            <button type="button" class="info-stern gross" id="dv-stern" aria-expanded="false" aria-controls="dv-fazit" aria-label="Was sich ändert"><span class="stern stern-teal" aria-hidden="true"></span></button>
+            <button type="button" class="btn btn-neon" id="dv-ok">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Sync -->
+  <dialog class="sheet" id="d-sync" aria-labelledby="ds-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Sync · <span id="ds-uhr"></span></p>
+        <h2 class="mit-stern" id="ds-titel">Was startet jetzt?
+          <button type="button" class="info-stern" aria-expanded="false" aria-controls="ds-hilfe" aria-label="Erklärung anzeigen"><span class="stern stern-teal" aria-hidden="true"></span></button>
+        </h2>
+        <p class="blase" id="ds-hilfe" hidden>Tippe an, was gerade wirklich beginnt. Es startet dann jetzt, alles danach rückt nach (auch nach vorne). Was dazwischen liegt, entfällt.</p>
+        <ul class="sync-liste" id="ds-liste"></ul>
+      </div>
+      <div class="sheet-fuss">
+        <div class="sheet-knoepfe">
+          <button type="button" class="btn-text" id="ds-abbrechen">Abbrechen</button>
         </div>
       </div>
     </div>
@@ -253,14 +297,24 @@
     </div>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
-    <p id="toast-text"></p>
-    <button type="button" class="toast-knopf" id="toast-undo" hidden>Rückgängig</button>
+  <!-- Hinweise: ein Sternchen ploppt auf, antippen zeigt den Text -->
+  <div class="meldungen" id="meldungen">
+    <div class="meldungen-pop" id="meldungen-pop" role="dialog" aria-label="Hinweise" hidden>
+      <div class="mp-kopf">
+        <p class="sheet-mini">Hinweise</p>
+        <button type="button" class="mp-zu" id="meldungen-zu" aria-label="Hinweise schließen">×</button>
+      </div>
+      <ul class="mp-liste" id="meldungen-liste"></ul>
+    </div>
+    <button type="button" class="stern-fab" id="stern-fab" aria-expanded="false" aria-controls="meldungen-pop" hidden>
+      <span class="stern stern-teal" aria-hidden="true"></span>
+      <span class="stern-zahl" id="stern-zahl" hidden></span>
+    </button>
   </div>
   <div class="blitz" id="blitz" aria-hidden="true"></div>
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
-  <script src="js/agenda.js?v=12b9d0a5"></script>
-  <script src="js/timekeeper.js?v=a8657258"></script>
+  <script src="js/agenda.js?v=10a6e7f3"></script>
+  <script src="js/timekeeper.js?v=c45ec1f7"></script>
 </body>
 </html>

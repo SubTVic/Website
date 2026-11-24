@@ -13,9 +13,10 @@
 
    So läuft die Zeit:
    - Die App richtet sich nach der Uhr des Geräts, jeden Tag mit diesen Uhrzeiten.
-   - Ein Abschnitt beginnt nie vor seiner Startzeit. Läuft der vorige länger,
-     beginnt er entsprechend später. Lücken im Plan (z. B. 12:50 bis 13:00)
-     fangen eine Verlängerung auf.
+   - Läuft ein Abschnitt länger (Verlängern, Energizer, Sync), rücken die
+     folgenden nach hinten. Ist man schneller (Sync), rücken sie nach vorne.
+     Lücken im Plan (z. B. 12:50 bis 13:00) fangen das auf: Was nach einer
+     Lücke kommt, beginnt nie früher als geplant.
 
    Statt diese Datei zu ändern, kann man einen Ablauf auch direkt in der App
    aus Excel einfügen (Einstellungen → Ablauf aus Excel einfügen). Der gilt

@@ -65,16 +65,19 @@ Die fünf Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl d
 Eine zweite, eigenständige Seite für Coaches im selben Look: `time/index.html` (Adresse: `…/time/`). Sie ist nicht von der Startseite verlinkt und für Suchmaschinen gesperrt (`noindex`).
 
 - **Läuft nach der Uhr:** Die App zeigt, welcher Abschnitt gerade dran ist, die Restzeit als großen Countdown, den Fortschritt und was danach kommt. Vor dem Start, in Lücken des Plans und nach dem letzten Abschnitt zählt sie bis zum nächsten Start herunter bzw. meldet „Geschafft“.
-- **Ton am Ende:** Glocke, Gong oder Signal, Lautstärke, optional eine leise Vorwarnung 1 bis 5 Minuten vorher. Einzelne Abschnitte lassen sich im Ablauf über die Glocke stummschalten. Browser spielen Ton erst nach einer ersten Berührung der Seite ab, und nicht, wenn das Handy gesperrt ist. Darum hält die App den Bildschirm an (wo der Browser das kann).
-- **Verlängern um 1 bis 5 Minuten:** Danach wählt man, bei welchen späteren Abschnitten die Zeit wieder weggenommen wird (antippen = ganze Zeit dort, mit − und + aufteilen). Alles dazwischen verschiebt sich, alles danach bleibt wie geplant. Ohne Auswahl verschiebt sich der Rest des Tages. Auch der gerade beendete Abschnitt lässt sich noch bis 10 Minuten danach verlängern. Jede Änderung kann rückgängig gemacht werden.
-- **Zeitmodell:** Ein Abschnitt beginnt nie vor seiner Startzeit, aber später, wenn der vorige länger läuft. Lücken im Plan (z. B. 12:50 bis 13:00) fangen eine Verlängerung auf.
+- **Ton am Ende:** Glocke, Gong oder Signal, Lautstärke, optional eine leise Vorwarnung 1 bis 5 Minuten vorher. Einzelne Abschnitte lassen sich im Ablauf über die Glocke stummschalten. Browser spielen Ton erst nach einer ersten Berührung der Seite ab (oben erscheint dann „Ton aktivieren“), und nicht, wenn das Handy gesperrt ist. Darum hält die App den Bildschirm an (wo der Browser das kann).
+- **Verlängern um 1 bis 5 Minuten:** Danach wählt man, bei welchen späteren Abschnitten die Zeit wieder weggenommen wird (antippen = ganze Zeit dort, mit − und + aufteilen). Ohne Auswahl rückt alles danach nach hinten. Auch der gerade beendete Abschnitt lässt sich noch bis 10 Minuten danach verlängern.
+- **Energizer (Einschub):** 1 bis 5 Minuten, Name frei wählbar. „Jetzt“ unterbricht den laufenden Abschnitt, dessen Rest läuft danach weiter. Oder „Nach …“ einem späteren Abschnitt. Die Zeit kann wie beim Verlängern woanders weggenommen werden.
+- **Sync:** „Das startet jetzt.“ Man tippt den Abschnitt an, der gerade wirklich beginnt. Er startet dann jetzt, alles danach rückt nach hinten oder vorne. Was davor noch lief, endet jetzt. Was dazwischen lag, entfällt.
+- **Zeitmodell:** Verzug schiebt die folgenden Abschnitte nach hinten, Vorsprung zieht sie nach vorne. Eine Lücke im Plan (z. B. 12:50 bis 13:00) fängt beides auf: Was nach einer Lücke kommt, beginnt nie früher als geplant.
+- **Hinweise als Sternchen:** Statt Textboxen ploppt unten rechts ein Sternchen auf (z. B. nach einer Änderung oder wenn ein Abschnitt endet). Antippen zeigt den Text, bei Änderungen mit „Rückgängig“. In den Dialogen erklärt ein Sternchen, was sich ändert. Unter „Änderungen heute“ lässt sich jede Änderung einzeln entfernen.
 - **Groß-Ansicht** für Beamer oder das quergehaltene Handy.
 
-**Ablauf ändern:** in `time/js/agenda.js` (Anleitung in der Datei). Oder direkt in der App: Einstellungen → „Ablauf aus Excel einfügen“, dort die Zeilen aus der Excel-Tabelle (Spalten Start bis Wer, gern mit Überschrift und Titelzeile) hineinkopieren. Ein so eingefügter Ablauf gilt nur auf diesem Gerät.
+**Ablauf ändern:** in `time/js/agenda.js` (Anleitung in der Datei). Oder direkt in der App: Optionen → „Ablauf aus Excel einfügen“, dort die Zeilen aus der Excel-Tabelle (Spalten Start bis Wer, gern mit Überschrift und Titelzeile) hineinkopieren. Ein so eingefügter Ablauf gilt nur auf diesem Gerät.
 
-**Was gespeichert wird:** Einstellungen, stummgeschaltete Abschnitte, ein eingefügter Ablauf und die Verlängerungen des Tages liegen im `localStorage` des Browsers (nur auf diesem Gerät, nichts wird übertragen). Die Verlängerungen gelten nur für den jeweiligen Tag. Jedes Gerät hat seinen eigenen Stand: Verlängert eine Coachin auf ihrem Handy, sieht das ein anderes Gerät nicht.
+**Was gespeichert wird:** Einstellungen, stummgeschaltete Abschnitte, ein eingefügter Ablauf und die Änderungen des Tages (Verlängern, Energizer, Sync) liegen im `localStorage` des Browsers (nur auf diesem Gerät, nichts wird übertragen). Die Änderungen gelten nur für den jeweiligen Tag. Jedes Gerät hat seinen eigenen Stand: Verlängert eine Coachin auf ihrem Handy, sieht das ein anderes Gerät nicht.
 
-**Probelauf:** Einstellungen → Probelauf, oder direkt `time/?zeit=15:45&tempo=10` (Uhr startet um 15:45 und läuft zehnmal so schnell). Im Probelauf wird nichts vom Tagesstand gespeichert.
+**Probelauf:** Optionen → Probelauf, oder direkt `time/?zeit=15:45&tempo=10` (Uhr startet um 15:45 und läuft zehnmal so schnell). Im Probelauf wird nichts vom Tagesstand gespeichert.
 
 ## Nach Änderungen an Design oder Skripten
 

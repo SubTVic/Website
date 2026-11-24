@@ -1,30 +1,37 @@
 /* Timekeeper: Der Ablauf läuft nach der Uhr des Geräts. Die App zeigt, was
    gerade dran ist und wie lange es noch läuft, spielt am Ende eines Abschnitts
-   auf Wunsch einen Ton und lässt einen Abschnitt um 1 bis 5 Minuten verlängern.
-   Die Zeit kann bei späteren Abschnitten wieder weggenommen werden; alles
-   dazwischen verschiebt sich, alles danach bleibt wie geplant.
+   auf Wunsch einen Ton und lässt den Plan spontan anpassen:
+   - Verlängern um 1 bis 5 Minuten,
+   - Einschub (z. B. ein Energizer) jetzt oder nach einem Abschnitt,
+   - Sync: „Dieser Abschnitt startet jetzt“, alles danach rückt nach.
+   Bei Verlängern und Einschub kann die Zeit bei späteren Abschnitten wieder
+   weggenommen werden.
 
    Der Ablauf steht in agenda.js. Diese Datei muss man dafür nicht anfassen.
 
    Zeitmodell: Jeder Abschnitt hat eine geplante Startzeit und eine Dauer.
-   Er beginnt nie vor seiner Startzeit, aber später, wenn der vorige länger
-   läuft (Verzug). Eine Lücke im Plan schluckt Verzug. Verlängern heißt
-   Dauer + n, Wegnehmen heißt Dauer − n bei einem späteren Abschnitt. */
+   Verzug (später dran) schiebt die folgenden Abschnitte nach hinten, bis eine
+   Lücke im Plan ihn auffängt. Vorsprung (früher dran) zieht die folgenden
+   nach vorne, aber nicht über eine Lücke im Plan hinweg. Ein Sync setzt den
+   Start eines Abschnitts fest auf „jetzt“. Alle Änderungen eines Tages stehen
+   als Liste (historie) und werden bei jeder Berechnung neu angewendet. */
 (function () {
   "use strict";
 
   var MIN = 60000;
+  var KURZ = 30000;            /* Abschnitte unter 30 s gelten als entfallen */
+  var FRISCH = 20000;          /* Ton nur, wenn das Ende höchstens 20 s (echte Zeit) her ist */
+  var NACHLAUF = 10 * MIN;     /* So lange nach seinem Ende lässt sich ein Abschnitt noch verlängern */
+  var MAX_PLUS = 5;
+  var MELDUNG_KURZ = 3 * MIN;  /* Hinweise zum Abschnittsende verschwinden nach 3 Minuten */
   var KEY = {
     ablauf: "timekeeper.ablauf",
     tag: "timekeeper.tag",
     einst: "timekeeper.einstellungen",
     stumm: "timekeeper.stumm"
   };
-  var FRISCH = 20000;        /* Ton nur, wenn das Ende höchstens 20 s (echte Zeit) her ist */
-  var NACHLAUF = 10 * MIN;   /* So lange nach seinem Ende lässt sich ein Abschnitt noch verlängern */
-  var MAX_PLUS = 5;
   var TYPEN = [
-    [/coach/i, "coaches"], [/check|retro/i, "check"], [/input/i, "input"], [/aktion/i, "aktion"],
+    [/einschub/i, "einschub"], [/coach/i, "coaches"], [/check|retro/i, "check"], [/input/i, "input"], [/aktion/i, "aktion"],
     [/puffer/i, "puffer"], [/übergang|uebergang/i, "uebergang"], [/pause|mittag/i, "pause"]
   ];
   var TICKER_ZUSATZ = ["Timekeeper", "Verstehen. Ideen finden. Bauen. Testen."];
@@ -43,6 +50,9 @@
   function setzeText(e, text) { if (e.textContent !== text) { e.textContent = text; } }
   function minWort(n) { return n === 1 ? "1 Minute" : n + " Minuten"; }
   function zitat(s) { return "„" + s + "“"; }
+  function versatz(m) { return (m > 0 ? "+" : "−") + Math.abs(m) + " min"; }
+  function attrSicher(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  function ploppen(e) { e.classList.remove("ploppt"); void e.offsetWidth; e.classList.add("ploppt"); }
 
   function lies(k) {
     try { var v = window.localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; }
@@ -116,6 +126,10 @@
     for (var i = 0; i < TYPEN.length; i++) { if (TYPEN[i][0].test(typ)) { return TYPEN[i][1]; } }
     return "";
   }
+  function chip(typ) {
+    var k = typKlasse(typ);
+    return el("span", "chip" + (k ? " chip-" + k : ""), typ);
+  }
 
   var eigenerAblauf = lies(KEY.ablauf);
   var ablauf = normalisiere(eigenerAblauf && eigenerAblauf.abschnitte ? eigenerAblauf : window.AGENDA);
@@ -124,15 +138,19 @@
 
   /* ---------- Einstellungen und Zustand ---------- */
 
-  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2 };
+  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer" };
   (function () {
     var s = lies(KEY.einst) || {};
     Object.keys(E).forEach(function (k) { if (s[k] != null && typeof s[k] === typeof E[k]) { E[k] = s[k]; } });
   })();
   function speichereEinst() { schreib(KEY.einst, E); }
 
-  var historie = [];  /* [{ zeit, id, plus, abzug: [[id, minuten], …] }] */
-  var stumm = {};     /* id -> true: kein Ton am Ende dieses Abschnitts */
+  /* Änderungen des Tages, in Reihenfolge:
+     { art: "plus", zeit, id (Dauer-Kennung), ziel (Zeile), plus, abzug: [[id, min], …] }
+     { art: "einschub", zeit, eid, titel, dauer, nach (Zeile davor, "" = Anfang), um (Zeitpunkt oder null), abzug }
+     { art: "sync", zeit, id (Zeile) } */
+  var historie = [];
+  var stumm = {};     /* Zeilen-Kennung -> true: kein Ton am Ende */
   var tag0 = tagBeginn(jetzt());
   var plan = [];
   var version = 0;
@@ -141,7 +159,9 @@
     historie = [];
     if (probe) { return; }
     var s = lies(KEY.tag);
-    if (s && s.datum === datumText(jetzt()) && s.key === ablaufKey && Array.isArray(s.historie)) { historie = s.historie; }
+    if (s && s.datum === datumText(jetzt()) && s.key === ablaufKey && Array.isArray(s.historie)) {
+      historie = s.historie.filter(function (h) { return h && typeof h === "object"; });
+    }
   }
   function speichereTag() {
     if (probe) { return; }
@@ -154,34 +174,105 @@
   }
   function speichereStumm() { schreib(KEY.stumm, { key: ablaufKey, ids: Object.keys(stumm) }); }
 
-  /* ---------- Zeitplan berechnen ---------- */
-
-  function deltas(hist) {
-    var d = {};
-    hist.forEach(function (h) {
-      d[h.id] = (d[h.id] || 0) + h.plus;
-      h.abzug.forEach(function (a) { d[a[0]] = (d[a[0]] || 0) - a[1]; });
-    });
-    return d;
-  }
+  /* ---------- Zeitplan berechnen ----------
+     Ergebnis: Liste von Zeilen { a, id, dauerId, art ("normal" | "einschub"),
+     teil (0, 1 = unterbrochen, 2 = Fortsetzung), planStart, planEnde, start, ende, dauer (min), i } */
 
   function berechne(hist) {
-    var d = deltas(hist);
-    var res = [];
-    var vorPlanEnde = null;
-    var vorVerzug = 0;
-    ablauf.abschnitte.forEach(function (a, i) {
-      var planStart = tag0 + a.start * MIN;
-      var planEnde = planStart + a.dauer * MIN;
-      var luecke = vorPlanEnde === null ? 0 : Math.max(0, planStart - vorPlanEnde);
-      var verzug = Math.max(0, vorVerzug - luecke);
-      var dauer = Math.max(0, a.dauer + (d[a.id] || 0));
-      var start = planStart + verzug;
-      var ende = start + dauer * MIN;
-      res.push({ a: a, i: i, planStart: planStart, planEnde: planEnde, start: start, ende: ende, dauer: dauer });
-      vorPlanEnde = planEnde;
-      vorVerzug = ende - planEnde;
+    var d = {};
+    var anker = {};
+    var kinder = {};
+    hist.forEach(function (h) {
+      var art = h.art || "plus";
+      if (art === "plus") { d[h.id] = (d[h.id] || 0) + h.plus; }
+      else if (art === "sync") { anker[h.id] = h.zeit; }
+      else if (art === "einschub") { var k = h.nach || ""; (kinder[k] = kinder[k] || []).push(h); }
+      (h.abzug || []).forEach(function (a) { d[a[0]] = (d[a[0]] || 0) - a[1]; });
     });
+    /* Unterbrechungen („jetzt“) vor Einschüben am Ende eines Abschnitts */
+    Object.keys(kinder).forEach(function (k) {
+      kinder[k].sort(function (x, y) { return (x.um != null ? 0 : 1) - (y.um != null ? 0 : 1); });
+    });
+
+    var res = [];
+    var vor = null;
+
+    function verzugFuer(planStart) {
+      if (!vor) { return 0; }
+      var e = vor.ende - vor.planEnde;
+      var luecke = Math.max(0, planStart - vor.planEnde);
+      if (e >= 0) { return Math.max(0, e - luecke); }   /* Verzug: Lücke fängt ihn auf */
+      return luecke > 0 ? 0 : e;                          /* Vorsprung: nur ohne Lücke */
+    }
+
+    function setze(x, start) {
+      var ank = anker[x.id];
+      if (ank != null) {
+        start = ank;
+        /* Was davor noch läuft, endet jetzt; was noch nicht begonnen hat, entfällt */
+        for (var j = res.length - 1; j >= 0; j--) {
+          var r = res[j];
+          if (r.ende <= ank) { break; }
+          if (r.start > ank) { r.start = ank; }
+          r.ende = ank;
+        }
+        /* Später gestartet: der Abschnitt davor lief so lange weiter */
+        if (vor && vor.ende < ank && vor.ende > vor.start && (x.direkt || x.planStart <= vor.planEnde)) { vor.ende = ank; }
+      }
+      x.start = start;
+      x.ende = start + x.dauerMs;
+      res.push(x);
+      vor = x;
+    }
+
+    function folge(id) { (kinder[id] || []).forEach(einschub); }
+
+    function basis(a) {
+      var ps = tag0 + a.start * MIN;
+      var x = {
+        a: a, id: a.id, dauerId: a.id, art: "normal", teil: 0,
+        planStart: ps, planEnde: ps + a.dauer * MIN,
+        dauerMs: Math.max(0, a.dauer + (d[a.id] || 0)) * MIN
+      };
+      setze(x, ps + verzugFuer(ps));
+      folge(x.id);
+    }
+
+    function einschub(h) {
+      var a = { id: h.eid, titel: h.titel || "Einschub", typ: "Einschub", track: "", wer: "", dauer: h.dauer };
+      var x = { a: a, id: h.eid, dauerId: h.eid, art: "einschub", teil: 0, dauerMs: Math.max(0, h.dauer + (d[h.eid] || 0)) * MIN };
+      var p = vor;
+      if (h.um != null && p && p.id === h.nach && p.start < h.um && h.um < p.ende) {
+        /* Unterbrechung: p endet jetzt, der Rest läuft nach dem Einschub weiter */
+        var rest = p.ende - h.um;
+        p.ende = h.um;
+        p.teil = 1;
+        x.planStart = x.planEnde = h.um;
+        setze(x, h.um);
+        folge(x.id);
+        var x2 = {
+          a: p.a, id: p.id + "#2", dauerId: p.dauerId, art: p.art, teil: 2, direkt: true,
+          planStart: p.planEnde, planEnde: p.planEnde, dauerMs: rest
+        };
+        setze(x2, vor.ende);
+        folge(x2.id);
+        return;
+      }
+      if (h.um != null) {
+        x.planStart = x.planEnde = h.um;
+        setze(x, Math.max(h.um, p ? p.ende : h.um));
+      } else {
+        var ps = p ? p.planEnde : (ablauf.abschnitte.length ? tag0 + ablauf.abschnitte[0].start * MIN : h.zeit);
+        x.planStart = x.planEnde = ps;
+        x.direkt = !!p;
+        setze(x, p ? p.ende : ps);
+      }
+      folge(x.id);
+    }
+
+    folge("");
+    ablauf.abschnitte.forEach(basis);
+    res.forEach(function (x, i) { x.i = i; x.dauer = Math.max(0, x.ende - x.start) / MIN; });
     return res;
   }
 
@@ -190,12 +281,34 @@
     version++;
   }
 
+  function zaehlt(x) { return x.ende - x.start >= KURZ; }
+  function slotTitel(x) { return x.a.titel + (x.teil === 2 ? " (Fortsetzung)" : ""); }
+  function slotVon(id, liste) {
+    liste = liste || plan;
+    for (var i = 0; i < liste.length; i++) { if (liste[i].id === id) { return liste[i]; } }
+    return null;
+  }
+  function titelVon(id) {
+    for (var i = 0; i < plan.length; i++) { if (plan[i].id === id || plan[i].dauerId === id) { return slotTitel(plan[i]); } }
+    for (var k = 0; k < historie.length; k++) { if (historie[k].eid === id) { return historie[k].titel; } }
+    return String(id).replace(/^\d\d:\d\d /, "").replace(/#2/g, " (Fortsetzung)");
+  }
+  function tagesende(p) {
+    var e = null;
+    var pe = null;
+    p.forEach(function (x) {
+      if (e === null || x.ende > e) { e = x.ende; }
+      if (pe === null || x.planEnde > pe) { pe = x.planEnde; }
+    });
+    return { ende: e, plan: pe };
+  }
+
   /* Wo stehen wir? laufend / naechster / letzter sind Indizes in plan (−1 = keiner) */
   function lage(p, t) {
     var lg = { laufend: -1, naechster: -1, letzter: -1, phase: "leer" };
     for (var i = 0; i < p.length; i++) {
       var x = p[i];
-      if (x.dauer === 0) { continue; }
+      if (!zaehlt(x)) { continue; }
       if (x.start <= t && t < x.ende) { lg.laufend = i; }
       else if (x.ende <= t) { if (lg.letzter < 0 || x.ende >= p[lg.letzter].ende) { lg.letzter = i; } }
       else if (lg.naechster < 0) { lg.naechster = i; }
@@ -207,28 +320,25 @@
   }
 
   function naechsterNach(i) {
-    for (var j = i + 1; j < plan.length; j++) { if (plan[j].dauer > 0) { return plan[j]; } }
+    for (var j = i + 1; j < plan.length; j++) { if (zaehlt(plan[j])) { return plan[j]; } }
     return null;
   }
-  function indexVon(id) {
-    for (var i = 0; i < plan.length; i++) { if (plan[i].a.id === id) { return i; } }
-    return -1;
-  }
-  function titelVon(id) { var i = indexVon(id); return i >= 0 ? plan[i].a.titel : id; }
-  function tagesende(p) {
-    var e = null;
-    var pe = null;
-    p.forEach(function (x) { if (e === null || x.ende > e) { e = x.ende; } if (pe === null || x.planEnde > pe) { pe = x.planEnde; } });
-    return { ende: e, plan: pe };
-  }
 
-  /* Welche Abschnitte lassen sich gerade verlängern? Der laufende und der, der eben zu Ende ging. */
+  /* Verlängerbar: der laufende und der eben zu Ende gegangene Abschnitt */
   function kandidaten(lg, t) {
     var k = [];
     if (lg.laufend >= 0) { k.push({ i: lg.laufend, art: "jetzt" }); }
-    if (lg.letzter >= 0 && lg.letzter !== lg.laufend && t - plan[lg.letzter].ende <= NACHLAUF) {
-      k.push({ i: lg.letzter, art: "vorbei" });
-    }
+    var l = lg.letzter >= 0 ? plan[lg.letzter] : null;
+    if (l && lg.letzter !== lg.laufend && l.teil !== 1 && t - l.ende <= NACHLAUF) { k.push({ i: lg.letzter, art: "vorbei" }); }
+    return k;
+  }
+
+  /* Für Sync: der laufende und die nächsten Abschnitte */
+  function syncKandidaten(lg) {
+    var k = [];
+    if (lg.laufend >= 0) { k.push(lg.laufend); }
+    var ab = lg.laufend >= 0 ? lg.laufend + 1 : (lg.naechster >= 0 ? lg.naechster : plan.length);
+    for (var j = ab; j < plan.length && k.length < 6; j++) { if (zaehlt(plan[j])) { k.push(j); } }
     return k;
   }
 
@@ -348,21 +458,63 @@
     setzeText($("e-wach-status"), text);
   }
 
-  /* ---------- Hinweise: Toast, Blitz, Ansage ---------- */
+  /* ---------- Hinweise als Sternchen ---------- */
 
-  var toastTimer = null;
-  var toastUndo = null;
+  var meldungen = []; /* { zeit, real, text, eintrag, kurz } */
 
-  function zeigeToast(text, undo, ms) {
-    var t = $("toast");
-    $("toast-text").textContent = text;
-    toastUndo = undo || null;
-    $("toast-undo").hidden = !undo;
-    t.hidden = false;
-    window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(versteckeToast, ms || 7000);
+  function melde(text, eintrag, kurz) {
+    meldungen.unshift({ zeit: jetzt(), real: Date.now(), text: text, eintrag: eintrag || null, kurz: !!kurz });
+    if (meldungen.length > 6) { meldungen.length = 6; }
+    ansagen(text);
+    zeigeStern(true);
   }
-  function versteckeToast() { $("toast").hidden = true; toastUndo = null; }
+
+  function zeigeStern(neu) {
+    var fab = $("stern-fab");
+    var n = meldungen.length;
+    fab.hidden = !n;
+    $("stern-zahl").hidden = n < 2;
+    setzeText($("stern-zahl"), String(n));
+    fab.setAttribute("aria-label", n === 1 ? "Neuer Hinweis, antippen zum Lesen" : n + " neue Hinweise, antippen zum Lesen");
+    if (neu) { ploppen(fab); }
+    if (!$("meldungen-pop").hidden) { zeichneMeldungen(); }
+    if (!n) { $("meldungen-pop").hidden = true; fab.setAttribute("aria-expanded", "false"); }
+  }
+
+  function zeichneMeldungen() {
+    var ul = $("meldungen-liste");
+    ul.textContent = "";
+    meldungen.forEach(function (m) {
+      var li = el("li");
+      li.appendChild(el("span", "mp-zeit", uhrzeit(m.zeit)));
+      li.appendChild(el("p", "", m.text));
+      if (m.eintrag) {
+        var b = el("button", "mp-undo", "Rückgängig");
+        b.type = "button";
+        var noch = historie.indexOf(m.eintrag) >= 0;
+        b.disabled = !noch;
+        if (!noch) { b.textContent = "Schon entfernt"; }
+        b.addEventListener("click", function (e) {
+          e.stopPropagation(); /* sonst gilt der Klick als „daneben“, weil der Knopf neu gezeichnet wird */
+          entferne(m.eintrag);
+          zeichneMeldungen();
+        });
+        li.appendChild(b);
+      }
+      ul.appendChild(li);
+    });
+  }
+
+  function oeffneMeldungen() {
+    zeichneMeldungen();
+    $("meldungen-pop").hidden = false;
+    $("stern-fab").setAttribute("aria-expanded", "true");
+  }
+  function schliesseMeldungen() {
+    if ($("meldungen-pop").hidden) { return; }
+    meldungen = [];
+    zeigeStern(false);
+  }
 
   function blitz() {
     var b = $("blitz");
@@ -388,7 +540,7 @@
     var vorbei = null;
     var warnung = null;
     plan.forEach(function (x) {
-      if (x.dauer === 0) { return; }
+      if (!zaehlt(x)) { return; }
       if (x.ende > letzterTick && x.ende <= t && frisch(t - x.ende)) { vorbei = x; }
       if (E.vorwarnung > 0 && x.dauer > E.vorwarnung) {
         var w = x.ende - E.vorwarnung * MIN;
@@ -402,36 +554,24 @@
 
   function abschnittVorbei(x) {
     var n = naechsterNach(x.i);
-    var text = "Zeit ist um: " + zitat(x.a.titel) + ".";
-    if (n) { text += n.start <= x.ende ? " Jetzt: " + zitat(n.a.titel) + "." : " Weiter um " + uhrzeit(n.start) + "."; }
+    var text = "Zeit ist um: " + zitat(slotTitel(x)) + ".";
+    if (n) { text += n.start <= x.ende + 1000 ? " Jetzt: " + zitat(slotTitel(n)) + "." : " Weiter um " + uhrzeit(n.start) + "."; }
     blitz();
-    zeigeToast(text, null, 9000);
-    ansagen(text);
-    if (E.ton && !stumm[x.a.id]) {
+    melde(text, null, true);
+    if (E.ton && !stumm[x.id]) {
       spiele(E.klang);
       vibriere([350, 150, 350, 150, 350]);
     }
   }
 
   function vorwarnen(x) {
-    var text = "Noch " + minWort(E.vorwarnung) + ": " + zitat(x.a.titel) + ".";
-    zeigeToast(text, null, 6000);
-    ansagen(text);
-    if (E.ton && !stumm[x.a.id]) { spiele("vorwarnung"); vibriere(200); }
+    melde("Noch " + minWort(E.vorwarnung) + ": " + zitat(slotTitel(x)) + ".", null, true);
+    if (E.ton && !stumm[x.id]) { spiele("vorwarnung"); vibriere(200); }
   }
 
   /* ---------- Anzeige: Jetzt ---------- */
 
   var anzeige = { chipsFuer: null, laufendId: null };
-
-  function baueChips(box, a, hell) {
-    box.textContent = "";
-    if (a.typ) {
-      var k = typKlasse(a.typ);
-      box.appendChild(el("span", "chip" + (k ? " chip-" + k : ""), a.typ));
-    }
-    if (hell && a.track) { box.appendChild(el("span", "chip chip-track", a.track)); }
-  }
 
   function zeichneJetzt(lg, t) {
     var body = document.body;
@@ -450,15 +590,15 @@
     if (lg.phase === "laeuft") {
       var x = plan[lg.laufend];
       var rest = x.ende - t;
-      status = "Jetzt";
+      status = x.teil === 2 ? "Jetzt geht’s weiter" : "Jetzt";
       titel = x.a.titel;
-      chipsFuer = x.a;
+      chipsFuer = x;
       cdLabel = "Noch";
       zahl = restText(rest);
-      zeit = uhrzeit(x.start) + "–" + uhrzeit(x.ende) + " · " + x.dauer + " min";
-      if (x.ende !== x.planEnde) {
-        var d = Math.round((x.ende - x.planEnde) / MIN);
-        zeitVerzug = (d > 0 ? "+" : "−") + Math.abs(d) + " min gegenüber Plan";
+      zeit = uhrzeit(x.start) + "–" + uhrzeit(x.ende) + " · " + Math.round(x.dauer) + " min";
+      if (x.art === "normal" && !x.teil) {
+        var dm = Math.round((x.ende - x.planEnde) / MIN);
+        if (dm) { zeitVerzug = versatz(dm) + " gegenüber Plan"; }
       }
       knapp = rest <= Math.max(1, E.vorwarnung) * MIN;
       danach = naechsterNach(lg.laufend);
@@ -467,24 +607,24 @@
     } else if (lg.phase === "vorher" || lg.phase === "frei") {
       var n = plan[lg.naechster];
       status = lg.phase === "vorher" ? "Gleich geht’s los" : "Frei bis " + uhrzeit(n.start);
-      titel = n.a.titel;
-      chipsFuer = n.a;
+      titel = slotTitel(n);
+      chipsFuer = n;
       cdLabel = "Beginnt in";
       zahl = restText(n.start - t);
       zeit = lg.phase === "vorher"
-        ? "Start um " + uhrzeit(n.start) + " · " + n.dauer + " min"
-        : "Gerade vorbei: " + plan[lg.letzter].a.titel + " (bis " + uhrzeit(plan[lg.letzter].ende) + ")";
+        ? "Start um " + uhrzeit(n.start) + " · " + Math.round(n.dauer) + " min"
+        : "Gerade vorbei: " + slotTitel(plan[lg.letzter]) + " (bis " + uhrzeit(plan[lg.letzter].ende) + ")";
       danach = naechsterNach(lg.naechster);
       tabTitel = zahl + " bis " + titel;
     } else if (lg.phase === "fertig") {
       var te = tagesende(plan);
       status = "Geschafft";
       titel = "Der Tag ist durch.";
-      zeit = "Letzter Abschnitt endete um " + uhrzeit(te.ende) + (te.ende !== te.plan ? " (geplant: " + uhrzeit(te.plan) + ")" : "") + ".";
+      zeit = "Letzter Abschnitt endete um " + uhrzeit(te.ende) + (Math.round((te.ende - te.plan) / MIN) ? " (geplant: " + uhrzeit(te.plan) + ")" : "") + ".";
     } else {
       status = "Kein Ablauf";
       titel = "Noch kein Ablauf hinterlegt";
-      zeit = "Unter Einstellungen kannst du einen Ablauf aus Excel einfügen.";
+      zeit = "Unter Optionen kannst du einen Ablauf aus Excel einfügen.";
     }
 
     setzeText($("j-status"), status);
@@ -500,27 +640,35 @@
     }
     body.classList.toggle("knapp", knapp);
 
-    var chipsKey = chipsFuer ? chipsFuer.id : "";
+    var chipsKey = chipsFuer ? chipsFuer.id + "|" + chipsFuer.teil : "";
     if (anzeige.chipsFuer !== chipsKey) {
       anzeige.chipsFuer = chipsKey;
-      if (chipsFuer) { baueChips($("j-chips"), chipsFuer, true); } else { $("j-chips").textContent = ""; }
+      var box = $("j-chips");
+      box.textContent = "";
+      if (chipsFuer) {
+        if (chipsFuer.a.typ) { box.appendChild(chip(chipsFuer.a.typ)); }
+        if (chipsFuer.a.track) { box.appendChild(el("span", "chip chip-track", chipsFuer.a.track)); }
+      }
     }
 
-    var box = $("danach");
-    box.hidden = !danach;
+    var dbox = $("danach");
+    dbox.hidden = !danach;
     if (danach) {
-      setzeText($("danach-label"), danach.start > (lg.phase === "laeuft" ? plan[lg.laufend].ende : plan[lg.naechster].ende) ? "Danach, nach einer Lücke" : "Danach");
-      setzeText($("danach-titel"), danach.a.titel);
-      setzeText($("danach-meta"), uhrzeit(danach.start) + "–" + uhrzeit(danach.ende) + " · " + danach.dauer + " min" + (danach.a.typ ? " · " + danach.a.typ : ""));
+      var bezug = lg.phase === "laeuft" ? plan[lg.laufend].ende : plan[lg.naechster].ende;
+      setzeText($("danach-label"), danach.start > bezug + 1000 ? "Danach, nach einer Lücke" : "Danach");
+      setzeText($("danach-titel"), slotTitel(danach));
+      setzeText($("danach-meta"), uhrzeit(danach.start) + "–" + uhrzeit(danach.ende) + " · " + Math.round(danach.dauer) + " min" + (danach.a.typ ? " · " + danach.a.typ : ""));
     }
 
     $("verlaengern").disabled = !kandidaten(lg, t).length;
+    $("sync").disabled = !syncKandidaten(lg).length;
+    $("einschub").disabled = lg.phase === "leer" || lg.phase === "fertig";
     if (document.title !== tabTitel) { document.title = tabTitel; }
 
     /* Ansage, wenn ein neuer Abschnitt beginnt (nicht beim ersten Laden) */
-    var laufendId = lg.laufend >= 0 ? plan[lg.laufend].a.id : "";
+    var laufendId = lg.laufend >= 0 ? plan[lg.laufend].id : "";
     if (anzeige.laufendId !== null && laufendId && laufendId !== anzeige.laufendId) {
-      ansagen("Jetzt: " + plan[lg.laufend].a.titel + ", bis " + uhrzeit(plan[lg.laufend].ende) + ".");
+      ansagen("Jetzt: " + slotTitel(plan[lg.laufend]) + ", bis " + uhrzeit(plan[lg.laufend].ende) + ".");
     }
     anzeige.laufendId = laufendId;
   }
@@ -546,40 +694,43 @@
     var ol = $("liste");
     ol.textContent = "";
     laufBalken = null;
+    var bisher = null;
     plan.forEach(function (x, i) {
-      if (i > 0) {
-        var frei = x.start - plan[i - 1].ende;
+      if (bisher !== null && zaehlt(x)) {
+        var frei = x.start - bisher;
         if (frei >= MIN) {
-          var lu = el("li", "luecke", Math.round(frei / MIN) + " min frei (" + uhrzeit(plan[i - 1].ende) + "–" + uhrzeit(x.start) + ")");
-          ol.appendChild(lu);
+          ol.appendChild(el("li", "luecke", Math.round(frei / MIN) + " min frei (" + uhrzeit(bisher) + "–" + uhrzeit(x.start) + ")"));
         }
       }
-      var zustand = x.dauer === 0 ? "entfaellt" : i === lg.laufend ? "laeuft" : x.ende <= t ? "vorbei" : "kommt";
-      var li = el("li", "zeile " + zustand);
+      if (zaehlt(x)) { bisher = bisher === null ? x.ende : Math.max(bisher, x.ende); }
+
+      var zustand = !zaehlt(x) ? "entfaellt" : i === lg.laufend ? "laeuft" : x.ende <= t ? "vorbei" : "kommt";
+      var li = el("li", "zeile " + zustand + (x.art === "einschub" ? " einschub" : ""));
       if (zustand === "laeuft") { li.setAttribute("aria-current", "step"); }
 
       var zeit = el("div", "z-zeit");
       zeit.appendChild(el("span", "z-start", uhrzeit(x.start)));
-      if (x.start !== x.planStart) {
+      if (x.art === "normal" && x.teil !== 2 && Math.round((x.start - x.planStart) / MIN)) {
         var alt = el("s", "z-alt", uhrzeit(x.planStart));
         alt.setAttribute("title", "geplant " + uhrzeit(x.planStart));
         zeit.appendChild(alt);
       }
 
       var inhalt = el("div", "z-inhalt");
-      inhalt.appendChild(el("p", "z-titel", x.a.titel));
+      inhalt.appendChild(el("p", "z-titel", slotTitel(x)));
       var meta = el("p", "z-meta");
-      if (x.a.typ) {
-        var k = typKlasse(x.a.typ);
-        meta.appendChild(el("span", "chip" + (k ? " chip-" + k : ""), x.a.typ));
-      }
+      if (x.a.typ) { meta.appendChild(chip(x.a.typ)); }
       var teile = [];
-      if (x.a.track) { teile.push(x.a.track); }
-      if (x.a.wer) { teile.push(x.a.wer); }
-      teile.push(x.dauer === 0 ? "entfällt" : x.dauer + " min, bis " + uhrzeit(x.ende));
+      if (x.a.track && x.teil !== 2) { teile.push(x.a.track); }
+      if (x.a.wer && x.teil !== 2) { teile.push(x.a.wer); }
+      if (!zaehlt(x)) { teile.push("entfällt"); }
+      else { teile.push(Math.round(x.dauer) + " min, bis " + uhrzeit(x.ende)); }
+      if (x.teil === 1) { teile.push("unterbrochen"); }
       meta.appendChild(el("span", "", teile.join(" · ")));
-      var diff = x.dauer - x.a.dauer;
-      if (diff) { meta.appendChild(el("span", "z-diff " + (diff > 0 ? "plus" : "minus"), (diff > 0 ? "+" : "−") + Math.abs(diff) + " min")); }
+      if (x.art === "normal" && !x.teil && zaehlt(x)) {
+        var diff = Math.round(x.dauer) - x.a.dauer;
+        if (diff) { meta.appendChild(el("span", "z-diff " + (diff > 0 ? "plus" : "minus"), versatz(diff))); }
+      }
       inhalt.appendChild(meta);
       if (zustand === "laeuft") {
         var b = el("div", "z-balken");
@@ -590,10 +741,10 @@
 
       var glocke = el("button", "glocke");
       glocke.type = "button";
-      glocke.setAttribute("data-id", x.a.id);
-      glocke.setAttribute("aria-pressed", stumm[x.a.id] ? "false" : "true");
-      glocke.setAttribute("aria-label", "Ton am Ende von " + zitat(x.a.titel));
-      glocke.title = stumm[x.a.id] ? "Kein Ton am Ende" : "Ton am Ende";
+      glocke.setAttribute("data-id", x.id);
+      glocke.setAttribute("aria-pressed", stumm[x.id] ? "false" : "true");
+      glocke.setAttribute("aria-label", "Ton am Ende von " + zitat(slotTitel(x)));
+      glocke.title = stumm[x.id] ? "Kein Ton am Ende" : "Ton am Ende";
       glocke.appendChild(glockenIcon("ico-an", false));
       glocke.appendChild(glockenIcon("ico-aus", true));
 
@@ -609,26 +760,46 @@
     if (te.ende !== null) {
       ende.appendChild(document.createTextNode("Ende "));
       ende.appendChild(el("strong", "", uhrzeit(te.ende)));
-      if (te.ende !== te.plan) {
-        var d = Math.round((te.ende - te.plan) / MIN);
+      var d = Math.round((te.ende - te.plan) / MIN);
+      if (d) {
         ende.appendChild(document.createTextNode(" "));
-        ende.appendChild(el("span", "verzug", "(" + (d > 0 ? "+" : "−") + Math.abs(d) + " min, Plan " + uhrzeit(te.plan) + ")"));
+        ende.appendChild(el("span", "verzug", "(" + versatz(d) + ", Plan " + uhrzeit(te.plan) + ")"));
       }
     }
     zeichneAenderungen();
+  }
+
+  function abzugText(h) {
+    return (h.abzug || []).length
+      ? " · weggenommen bei " + h.abzug.map(function (a) { return zitat(titelVon(a[0])) + " −" + a[1]; }).join(", ")
+      : "";
+  }
+
+  function aenderungText(h) {
+    var art = h.art || "plus";
+    if (art === "sync") { return uhrzeit(h.zeit) + " · Sync: " + zitat(titelVon(h.id)) + " gestartet"; }
+    if (art === "einschub") {
+      return uhrzeit(h.zeit) + " · " + zitat(h.titel) + " (" + h.dauer + " min) " +
+        (h.um != null ? "um " + uhrzeit(h.um) : "nach " + zitat(titelVon(h.nach))) + abzugText(h);
+    }
+    return uhrzeit(h.zeit) + " · " + zitat(titelVon(h.ziel || h.id)) + " +" + h.plus + " min" + (abzugText(h) || " · alles danach verschoben");
   }
 
   function zeichneAenderungen() {
     var ul = $("aend-liste");
     ul.textContent = "";
     $("aenderungen").hidden = !historie.length;
-    historie.slice().reverse().forEach(function (h) {
-      var text = uhrzeit(h.zeit) + " · " + zitat(titelVon(h.id)) + " +" + h.plus + " min";
-      text += h.abzug.length
-        ? " · weggenommen bei " + h.abzug.map(function (a) { return zitat(titelVon(a[0])) + " −" + a[1]; }).join(", ")
-        : " · nirgends weggenommen";
-      ul.appendChild(el("li", "", text));
-    });
+    for (var n = historie.length - 1; n >= 0; n--) {
+      var li = el("li");
+      li.appendChild(el("span", "", aenderungText(historie[n])));
+      var x = el("button", "aend-x", "×");
+      x.type = "button";
+      x.setAttribute("data-n", String(n));
+      x.setAttribute("aria-label", "Diese Änderung entfernen");
+      x.title = "Entfernen";
+      li.appendChild(x);
+      ul.appendChild(li);
+    }
   }
 
   function baueTicker() {
@@ -654,7 +825,7 @@
     var t = jetzt();
     var t0 = tagBeginn(t);
     if (t0 !== tag0) {
-      /* Neuer Tag: gestrige Verlängerungen gelten nicht mehr */
+      /* Neuer Tag: gestrige Änderungen gelten nicht mehr */
       tag0 = t0;
       if (historie.length) { historie = []; speichereTag(); }
       neuBerechnen();
@@ -670,12 +841,42 @@
       laufBalken.style.width = Math.min(100, Math.max(0, (t - x.start) / (x.ende - x.start) * 100)).toFixed(1) + "%";
     }
     setzeText($("uhr"), uhrzeitSek(t));
-    if (dv && $("d-verl").open && (t - dv.gezeichnet) > 1000) { zeichneDv(); }
+
+    /* Kurzlebige Hinweise (Abschnittsende) verschwinden nach ein paar Minuten */
+    var vorher = meldungen.length;
+    meldungen = meldungen.filter(function (m) { return !m.kurz || Date.now() - m.real < MELDUNG_KURZ; });
+    if (meldungen.length !== vorher) { zeigeStern(false); }
+
+    if (dv && $("d-verl").open) { zeichneDv(false); }
+    if ($("d-sync").open) { zeichneSync(); }
   }
 
-  /* ---------- Verlängern ---------- */
+  /* Nach jeder Änderung: neu rechnen, speichern, ohne dass für den Moment der Änderung ein Ton kommt */
+  function geaendert() {
+    speichereTag();
+    neuBerechnen();
+    letzterTick = jetzt();
+    tick();
+  }
 
-  var dv = null; /* { kandidaten, zielId, plus, abzug: {id: min}, reihenfolge: [id], gezeichnet } */
+  function entferne(eintrag) {
+    var n = historie.indexOf(eintrag);
+    if (n < 0) { return; }
+    historie.splice(n, 1);
+    geaendert();
+  }
+
+  /* ---------- Verlängern und Einschub (gemeinsamer Dialog) ---------- */
+
+  var dv = null;
+  /* { modus: "plus" | "einschub", plus, abzug: {dauerId: min}, reihenfolge: [dauerId], sig,
+       plus:   kandidaten, zielId
+       einschub: name, wannListe, wann, eid } */
+
+  function dialogZuruecksetzen(d) {
+    d.querySelectorAll(".blase").forEach(function (b) { b.hidden = true; });
+    d.querySelectorAll(".info-stern").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+  }
 
   function oeffneVerlaengern() {
     var t = jetzt();
@@ -683,19 +884,19 @@
     var k = kandidaten(lg, t);
     if (!k.length) { return; }
     dv = {
-      kandidaten: k.map(function (c) { return { id: plan[c.i].a.id, art: c.art }; }),
-      zielId: plan[k[0].i].a.id,
+      modus: "plus",
+      kandidaten: k.map(function (c) { return { id: plan[c.i].id, art: c.art }; }),
+      zielId: plan[k[0].i].id,
       plus: Math.min(MAX_PLUS, Math.max(1, E.plus || 2)),
       abzug: {},
       reihenfolge: [],
-      gezeichnet: 0
+      sig: ""
     };
-    var welcher = $("dv-welcher");
     var opts = $("dv-welcher-opts");
     opts.textContent = "";
-    welcher.hidden = dv.kandidaten.length < 2;
+    $("dv-welcher").hidden = dv.kandidaten.length < 2;
     dv.kandidaten.forEach(function (c, n) {
-      var x = plan[indexVon(c.id)];
+      var x = slotVon(c.id);
       var inp = el("input");
       inp.type = "radio";
       inp.name = "dv-ziel";
@@ -704,14 +905,62 @@
       inp.checked = c.id === dv.zielId;
       var lab = el("label");
       lab.htmlFor = inp.id;
-      lab.appendChild(el("span", "", x.a.titel));
-      lab.appendChild(el("small", "", c.art === "jetzt" ? "läuft gerade, bis " + uhrzeit(x.ende) : "gerade vorbei, seit " + uhrzeit(x.ende)));
+      lab.appendChild(el("span", "", slotTitel(x)));
+      lab.appendChild(el("small", "", c.art === "jetzt" ? "läuft, bis " + uhrzeit(x.ende) : "vorbei seit " + uhrzeit(x.ende)));
       opts.appendChild(inp);
       opts.appendChild(lab);
     });
+    $("dv-einschub-felder").hidden = true;
+    setzeText($("dv-mini"), "Verlängern");
+    setzeText($("dv-min-legend"), "Um wie viele Minuten?");
+    oeffneDv();
+  }
+
+  function oeffneEinschub() {
+    var t = jetzt();
+    var lg = lage(plan, t);
+    if (lg.phase === "leer" || lg.phase === "fertig") { return; }
+    var w = [];
+    if (lg.laufend >= 0) {
+      var x = plan[lg.laufend];
+      w.push({ text: "Jetzt (unterbricht " + zitat(slotTitel(x)) + ")", nach: x.id, jetzt: true });
+    } else {
+      w.push({ text: "Jetzt", nach: lg.letzter >= 0 ? plan[lg.letzter].id : "", jetzt: true });
+    }
+    var ab = lg.laufend >= 0 ? lg.laufend : lg.naechster;
+    for (var j = ab; j >= 0 && j < plan.length; j++) {
+      var y = plan[j];
+      if (zaehlt(y)) { w.push({ text: "Nach " + zitat(slotTitel(y)) + " (" + uhrzeit(y.ende) + ")", nach: y.id, jetzt: false }); }
+    }
+    dv = {
+      modus: "einschub",
+      plus: Math.min(MAX_PLUS, Math.max(1, E.einschub || 3)),
+      abzug: {},
+      reihenfolge: [],
+      name: E.einschubName || "Energizer",
+      wannListe: w,
+      wann: 0,
+      eid: "e" + Date.now().toString(36),
+      sig: ""
+    };
+    var sel = $("dv-wann");
+    sel.textContent = "";
+    w.forEach(function (o, n) { var op = el("option", "", o.text); op.value = String(n); sel.appendChild(op); });
+    sel.value = "0";
+    $("dv-name").value = dv.name;
+    $("dv-welcher").hidden = true;
+    $("dv-einschub-felder").hidden = false;
+    setzeText($("dv-mini"), "Einschub");
+    setzeText($("dv-min-legend"), "Wie lange?");
+    oeffneDv();
+  }
+
+  function oeffneDv() {
     var radio = document.querySelector('input[name="dv-plus"][value="' + dv.plus + '"]');
     if (radio) { radio.checked = true; }
-    zeichneDv();
+    dialogZuruecksetzen($("d-verl"));
+    $("dv-fazit").textContent = "";
+    zeichneDv(false);
     $("d-verl").showModal();
     var fokus = document.querySelector('input[name="dv-plus"]:checked');
     if (fokus) { fokus.focus(); }
@@ -724,12 +973,13 @@
   }
 
   function dvEintrag() {
-    return {
-      zeit: jetzt(),
-      id: dv.zielId,
-      plus: dv.plus,
-      abzug: dv.reihenfolge.filter(function (id) { return dv.abzug[id] > 0; }).map(function (id) { return [id, dv.abzug[id]]; })
-    };
+    var abzug = dv.reihenfolge.filter(function (id) { return dv.abzug[id] > 0; }).map(function (id) { return [id, dv.abzug[id]]; });
+    if (dv.modus === "einschub") {
+      var w = dv.wannListe[dv.wann] || dv.wannListe[0];
+      return { art: "einschub", zeit: jetzt(), eid: dv.eid, titel: sauber(dv.name) || "Einschub", dauer: dv.plus, nach: w.nach, um: w.jetzt ? jetzt() : null, abzug: abzug };
+    }
+    var ziel = slotVon(dv.zielId);
+    return { art: "plus", zeit: jetzt(), id: ziel ? ziel.dauerId : dv.zielId, ziel: dv.zielId, plus: dv.plus, abzug: abzug };
   }
 
   /* Abzüge kürzen, falls weniger Minuten gewählt wurden (zuletzt gewählte zuerst) */
@@ -748,16 +998,59 @@
     Object.keys(dv.abzug).forEach(function (id) { if (!(dv.abzug[id] > 0)) { delete dv.abzug[id]; } });
   }
 
-  function zeichneDv() {
-    var t = jetzt();
-    dv.gezeichnet = t;
-    var zi = indexVon(dv.zielId);
-    if (zi < 0) { $("d-verl").close(); return; }
-    var ziel = plan[zi];
+  /* Zeilen „Wo wegnehmen?“: alles nach dem verlängerten Abschnitt bzw. nach dem Einschub */
+  function dvZeilen(neu) {
+    var ankerId = dv.modus === "einschub" ? dv.eid : dv.zielId;
+    var ankerSlot = slotVon(ankerId, neu);
+    var ab = ankerSlot ? ankerSlot.i : neu.length;
+    var gesehen = {};
+    if (ankerSlot) { gesehen[ankerSlot.dauerId] = true; }
+    var zeilen = [];
+    for (var j = ab + 1; j < neu.length; j++) {
+      var nx = neu[j];
+      if (gesehen[nx.dauerId]) { continue; }
+      gesehen[nx.dauerId] = true;
+      var genommen = dv.abzug[nx.dauerId] || 0;
+      var vorherDauer = nx.dauer + genommen;
+      if (vorherDauer < 0.5 && !genommen) { continue; }
+      var alt = slotVon(nx.id);
+      zeilen.push({
+        nx: nx, id: nx.dauerId, genommen: genommen,
+        max: Math.floor(vorherDauer + 1e-9),
+        vorher: Math.round(vorherDauer),
+        versatz: alt ? Math.round((nx.start - alt.start) / MIN) : 0
+      });
+    }
+    return { zeilen: zeilen, ankerIdx: ab };
+  }
+
+  function zeichneDv(nachAktion) {
+    if (!dv) { return; }
+    if (dv.modus === "plus" && !slotVon(dv.zielId)) { $("d-verl").close(); return; }
     var neu = berechne(historie.concat([dvEintrag()]));
+    var z = dvZeilen(neu);
+
+    /* Abzüge, deren Abschnitt nicht mehr nach dem Einschub liegt, verwerfen */
+    var erlaubt = {};
+    var verworfen = false;
+    z.zeilen.forEach(function (r) { erlaubt[r.id] = true; });
+    Object.keys(dv.abzug).forEach(function (id) { if (!erlaubt[id]) { delete dv.abzug[id]; verworfen = true; } });
+    dvAufraeumen();
+    if (verworfen) {
+      neu = berechne(historie.concat([dvEintrag()]));
+      z = dvZeilen(neu);
+    }
     var rest = dv.plus - dvSumme();
 
-    setzeText($("dv-titel"), zitat(ziel.a.titel) + " verlängern");
+    var titel = dv.modus === "einschub" ? zitat(sauber(dv.name) || "Einschub") + " einbauen" : zitat(titelVon(dv.zielId)) + " verlängern";
+    var fazit = dvFazit(neu, z.ankerIdx);
+    var sig = JSON.stringify([titel, rest, z.zeilen.map(function (r) {
+      return [r.id, uhrzeit(r.nx.start), r.versatz, r.genommen, r.max, r.vorher, Math.round(r.nx.dauer)];
+    }), fazit, dv.plus]);
+    if (sig === dv.sig) { return; }
+    dv.sig = sig;
+
+    setzeText($("dv-titel"), titel);
 
     /* Fokus merken, weil die Liste neu gebaut wird */
     var aktiv = document.activeElement;
@@ -766,58 +1059,50 @@
 
     var ul = $("dv-liste");
     ul.textContent = "";
-    var spaeter = 0;
-    for (var j = zi + 1; j < plan.length; j++) {
-      var alt = plan[j];
-      var nx = neu[j];
-      var id = alt.a.id;
-      var genommen = dv.abzug[id] || 0;
-      var max = alt.dauer;
-      spaeter++;
-
-      var li = el("li", "dv-zeile" + (genommen ? " gewaehlt" : ""));
+    z.zeilen.forEach(function (r) {
+      var nx = r.nx;
+      var name = slotTitel(nx);
+      var li = el("li", "dv-zeile" + (r.genommen ? " gewaehlt" : ""));
       var wahl = el("button", "dv-wahl");
       wahl.type = "button";
-      wahl.setAttribute("data-id", id);
+      wahl.setAttribute("data-id", r.id);
       wahl.setAttribute("data-aktion", "alles");
-      wahl.disabled = max === 0;
+      wahl.setAttribute("data-max", String(r.max));
+      wahl.disabled = r.max === 0;
       var zeit = el("span", "dv-zeit", uhrzeit(nx.start));
-      var versatz = Math.round((nx.start - alt.start) / MIN);
-      if (versatz) { zeit.appendChild(el("small", "", (versatz > 0 ? "+" : "−") + Math.abs(versatz) + " min")); }
+      if (r.versatz) { zeit.appendChild(el("small", r.versatz > 0 ? "" : "frueher", versatz(r.versatz))); }
       var text = el("span", "dv-text");
-      text.appendChild(el("span", "dv-titel", alt.a.titel));
+      text.appendChild(el("span", "dv-titel", name));
       var meta = el("span", "dv-meta");
-      if (alt.a.typ) {
-        var k = typKlasse(alt.a.typ);
-        meta.appendChild(el("span", "chip" + (k ? " chip-" + k : ""), alt.a.typ));
-      }
-      if (genommen) {
-        var wert = el("span", "nowrap", alt.dauer + " → ");
-        wert.appendChild(el("strong", "", nx.dauer + " min"));
+      if (nx.a.typ) { meta.appendChild(chip(nx.a.typ)); }
+      if (r.genommen) {
+        var wert = el("span", "nowrap", r.vorher + " → ");
+        wert.appendChild(el("strong", "", Math.round(nx.dauer) + " min"));
         meta.appendChild(wert);
       } else {
-        meta.appendChild(document.createTextNode(alt.dauer === 0 ? "entfällt schon" : alt.dauer + " min"));
+        meta.appendChild(el("span", "nowrap", r.vorher + " min"));
       }
       text.appendChild(meta);
       wahl.appendChild(zeit);
       wahl.appendChild(text);
-      wahl.setAttribute("aria-label", alt.a.titel + ", " + alt.dauer + " min. Ganze Verlängerung hier wegnehmen.");
+      wahl.setAttribute("aria-label", name + ", " + r.vorher + " min. Ganze Zeit hier wegnehmen.");
 
       var stepper = el("div", "stepper");
       var minus = el("button", "", "−");
       minus.type = "button";
-      minus.setAttribute("data-id", id);
+      minus.setAttribute("data-id", r.id);
       minus.setAttribute("data-aktion", "minus");
-      minus.setAttribute("aria-label", "Eine Minute weniger bei " + zitat(alt.a.titel) + " wegnehmen");
-      minus.disabled = genommen === 0;
-      var out = el("output", genommen ? "" : "null", genommen ? "−" + genommen : "0");
-      out.setAttribute("aria-label", genommen + " min weggenommen");
+      minus.setAttribute("aria-label", "Eine Minute weniger bei " + zitat(name) + " wegnehmen");
+      minus.disabled = r.genommen === 0;
+      var out = el("output", r.genommen ? "" : "null", r.genommen ? "−" + r.genommen : "0");
+      out.setAttribute("aria-label", r.genommen + " min weggenommen");
       var plus = el("button", "", "+");
       plus.type = "button";
-      plus.setAttribute("data-id", id);
+      plus.setAttribute("data-id", r.id);
       plus.setAttribute("data-aktion", "plus");
-      plus.setAttribute("aria-label", "Eine Minute mehr bei " + zitat(alt.a.titel) + " wegnehmen");
-      plus.disabled = rest <= 0 || genommen >= max;
+      plus.setAttribute("data-max", String(r.max));
+      plus.setAttribute("aria-label", "Eine Minute mehr bei " + zitat(name) + " wegnehmen");
+      plus.disabled = rest <= 0 || r.genommen >= r.max;
       stepper.appendChild(minus);
       stepper.appendChild(out);
       stepper.appendChild(plus);
@@ -825,59 +1110,49 @@
       li.appendChild(wahl);
       li.appendChild(stepper);
       ul.appendChild(li);
-    }
-    if (!spaeter) { ul.appendChild(el("li", "dv-zeile", "Danach kommt nichts mehr, der Tag endet einfach später.")); }
+    });
+    if (!z.zeilen.length) { ul.appendChild(el("li", "dv-zeile dv-leer", "Danach kommt nichts mehr.")); }
 
     if (merkId && merkAktion) {
-      var wieder = ul.querySelector('[data-id="' + merkId.replace(/["\\]/g, "\\$&") + '"][data-aktion="' + merkAktion + '"]');
-      if (wieder && !wieder.disabled) { wieder.focus(); }
-      else if (wieder) { var w2 = ul.querySelector('[data-id="' + merkId.replace(/["\\]/g, "\\$&") + '"][data-aktion="alles"]'); if (w2) { w2.focus(); } }
+      var wieder = ul.querySelector('[data-id="' + attrSicher(merkId) + '"][data-aktion="' + merkAktion + '"]');
+      if (wieder && wieder.disabled) { wieder = ul.querySelector('[data-id="' + attrSicher(merkId) + '"][data-aktion="alles"]'); }
+      if (wieder) { wieder.focus(); }
     }
 
-    zeichneFazit(zi, neu, rest);
-    setzeText($("dv-ok"), "+" + dv.plus + " min übernehmen");
+    var fz = $("dv-fazit");
+    if (fz.textContent !== fazit) {
+      fz.textContent = fazit;
+      if (nachAktion) { ploppen($("dv-stern")); }
+    }
+    setzeText($("dv-ok"), dv.modus === "einschub" ? dv.plus + " min einbauen" : "+" + dv.plus + " min übernehmen");
   }
 
-  function zeichneFazit(zi, neu, rest) {
-    var box = $("dv-fazit");
-    var alt = plan;
+  function dvFazit(neu, ankerIdx) {
     var saetze = [];
-    saetze.push(zitat(alt[zi].a.titel) + " geht dann bis " + uhrzeit(neu[zi].ende) + " statt " + uhrzeit(alt[zi].ende) + ".");
-
-    /* Ab welchem Abschnitt bleibt alles wie bisher? */
+    var s = neu[ankerIdx];
+    if (!s) { return ""; }
+    if (dv.modus === "plus") {
+      var alt = slotVon(s.id);
+      saetze.push(zitat(slotTitel(s)) + " geht dann bis " + uhrzeit(s.ende) + (alt ? " statt " + uhrzeit(alt.ende) : "") + ".");
+    } else {
+      saetze.push(zitat(s.a.titel) + " läuft " + uhrzeit(s.start) + "–" + uhrzeit(s.ende) + ".");
+      var f = neu[ankerIdx + 1];
+      if (f && f.teil === 2) { saetze.push("Danach geht " + zitat(f.a.titel) + " bis " + uhrzeit(f.ende) + " weiter."); }
+    }
+    /* Ab welcher Zeile bleibt alles wie bisher? */
     var gleichAb = -1;
-    for (var m = alt.length - 1; m > zi; m--) {
-      if (neu[m].start === alt[m].start && neu[m].ende === alt[m].ende) { gleichAb = m; } else { break; }
+    for (var m = neu.length - 1; m > ankerIdx; m--) {
+      var a = slotVon(neu[m].id);
+      if (a && a.start === neu[m].start && a.ende === neu[m].ende) { gleichAb = m; } else { break; }
     }
-    if (gleichAb > zi) {
-      saetze.push(gleichAb === zi + 1
-        ? (neu[zi].ende > alt[zi].ende && neu[zi].ende <= alt[gleichAb].start
-          ? "Die freie Zeit bis " + uhrzeit(alt[gleichAb].start) + " fängt das auf, alles danach bleibt wie bisher."
-          : "Alles danach bleibt wie bisher.")
-        : "Ab " + uhrzeit(alt[gleichAb].start) + " (" + zitat(alt[gleichAb].a.titel) + ") bleibt alles wie bisher.");
-    } else if (alt.length) {
-      var teAlt = tagesende(alt).ende;
-      var teNeu = tagesende(neu).ende;
-      if (teNeu !== teAlt) {
-        saetze.push((rest > 0 && rest < dv.plus ? "Der Rest verschiebt alles danach. " : (zi < alt.length - 1 ? "Alles danach verschiebt sich. " : "")) +
-          "Der Tag endet um " + uhrzeit(teNeu) + " statt " + uhrzeit(teAlt) + ".");
-      }
+    if (gleichAb > ankerIdx) {
+      saetze.push(gleichAb === ankerIdx + 1 ? "Alles danach bleibt wie bisher." : "Ab " + uhrzeit(neu[gleichAb].start) + " (" + zitat(slotTitel(neu[gleichAb])) + ") bleibt alles wie bisher.");
+    } else {
+      var teA = tagesende(plan).ende;
+      var teN = tagesende(neu).ende;
+      if (Math.round((teN - teA) / MIN)) { saetze.push("Der Tag endet um " + uhrzeit(teN) + " statt " + uhrzeit(teA) + "."); }
     }
-
-    /* Warnung: Minuten weggenommen, wo gar kein Verzug ankommt (Lücke fängt ihn schon auf) */
-    var leer = [];
-    dv.reihenfolge.forEach(function (id) {
-      var j = indexVon(id);
-      if (j < 0) { return; }
-      var verschiebung = Math.round((neu[j].start - alt[j].start) / MIN);
-      var genommen = dv.abzug[id] || 0;
-      if (genommen > verschiebung) { leer.push(zitat(alt[j].a.titel) + " (" + (genommen - verschiebung) + " min)"); }
-    });
-
-    box.textContent = saetze.join(" ");
-    if (leer.length) {
-      box.appendChild(el("span", "warn", "Achtung: Eine Lücke im Plan fängt die Verlängerung schon auf. Bei " + leer.join(", ") + " entsteht dadurch freie Zeit."));
-    }
+    return saetze.join(" ");
   }
 
   function dvKlick(e) {
@@ -885,17 +1160,13 @@
     if (!b || b.disabled || !dv) { return; }
     var id = b.getAttribute("data-id");
     var aktion = b.getAttribute("data-aktion");
-    var j = indexVon(id);
-    if (j < 0) { return; }
-    var max = plan[j].dauer;
+    var max = Number(b.getAttribute("data-max")) || 0;
     var hatte = dv.abzug[id] || 0;
     if (aktion === "alles") {
-      if (hatte && hatte === Math.min(dv.plus, max) && dv.reihenfolge.length === 1) {
-        dv.abzug = {};                       /* Nochmal antippen: Auswahl aufheben */
-      } else {
-        dv.abzug = {};
-        dv.abzug[id] = Math.min(dv.plus, max);
-      }
+      var voll = Math.min(dv.plus, max);
+      var nurDas = hatte === voll && dv.reihenfolge.length === 1;
+      dv.abzug = {};
+      if (!nurDas) { dv.abzug[id] = voll; }   /* Nochmal antippen: Auswahl aufheben */
       dv.reihenfolge = dv.abzug[id] ? [id] : [];
     } else if (aktion === "plus") {
       if (dvSumme() < dv.plus && hatte < max) {
@@ -906,34 +1177,94 @@
       if (hatte > 0) { dv.abzug[id] = hatte - 1; }
     }
     dvAufraeumen();
-    zeichneDv();
+    zeichneDv(true);
   }
 
   function dvUebernehmen() {
-    if (!dv || indexVon(dv.zielId) < 0) { $("d-verl").close(); return; }
+    if (!dv) { return; }
+    if (dv.modus === "plus" && !slotVon(dv.zielId)) { $("d-verl").close(); return; }
     var eintrag = dvEintrag();
     historie.push(eintrag);
-    E.plus = dv.plus;
+    if (dv.modus === "plus") { E.plus = dv.plus; }
+    else { E.einschub = dv.plus; E.einschubName = eintrag.titel; }
     speichereEinst();
-    speichereTag();
-    neuBerechnen();
     $("d-verl").close();
-    tick();
-    var text = zitat(titelVon(eintrag.id)) + " +" + eintrag.plus + " min";
+    geaendert();
+    var text = eintrag.art === "einschub"
+      ? zitat(eintrag.titel) + " " + eintrag.dauer + " min eingebaut"
+      : zitat(titelVon(eintrag.ziel)) + " +" + eintrag.plus + " min";
     text += eintrag.abzug.length
-      ? ", weggenommen bei " + eintrag.abzug.map(function (a) { return zitat(titelVon(a[0])) + " −" + a[1]; }).join(", ") + "."
-      : ", alles danach verschiebt sich.";
-    zeigeToast(text, function () { rueckgaengig(eintrag); }, 9000);
+      ? ", " + eintrag.abzug.map(function (a) { return zitat(titelVon(a[0])) + " −" + a[1]; }).join(", ") + "."
+      : ", alles danach rückt nach.";
+    melde(text, eintrag);
   }
 
-  function rueckgaengig(eintrag) {
-    var n = eintrag ? historie.indexOf(eintrag) : historie.length - 1;
-    if (n < 0) { return; }
-    historie.splice(n, 1);
-    speichereTag();
-    neuBerechnen();
-    tick();
-    zeigeToast("Rückgängig gemacht.", null, 3000);
+  /* ---------- Sync: „Das startet jetzt“ ---------- */
+
+  var syncSig = "";
+
+  function oeffneSync() {
+    var lg = lage(plan, jetzt());
+    if (!syncKandidaten(lg).length) { return; }
+    syncSig = "";
+    dialogZuruecksetzen($("d-sync"));
+    zeichneSync();
+    $("d-sync").showModal();
+  }
+
+  function zeichneSync() {
+    var t = jetzt();
+    var lg = lage(plan, t);
+    var k = syncKandidaten(lg);
+    var zeilen = k.map(function (i) {
+      var x = plan[i];
+      var info;
+      if (i === lg.laufend) {
+        info = "läuft laut App seit " + uhrzeit(x.start);
+      } else {
+        var ueber = [];
+        for (var j = lg.laufend >= 0 ? lg.laufend + 1 : 0; j < i; j++) { if (zaehlt(plan[j]) && plan[j].start > t) { ueber.push(plan[j]); } }
+        info = ueber.length
+          ? "überspringt " + (ueber.length === 1 ? zitat(slotTitel(ueber[0])) : ueber.length + " Abschnitte")
+          : (lg.laufend >= 0 ? "beendet " + zitat(slotTitel(plan[lg.laufend])) : "als Nächstes");
+      }
+      return { id: x.id, titel: slotTitel(x), zeit: uhrzeit(x.start), info: info, m: Math.round((t - x.start) / MIN), typ: x.a.typ };
+    });
+    var sig = JSON.stringify([uhrzeit(t), zeilen]);
+    setzeText($("ds-uhr"), "jetzt " + uhrzeit(t));
+    if (sig === syncSig) { return; }
+    syncSig = sig;
+    var ul = $("ds-liste");
+    ul.textContent = "";
+    zeilen.forEach(function (z) {
+      var li = el("li");
+      var b = el("button", "sync-zeile");
+      b.type = "button";
+      b.setAttribute("data-id", z.id);
+      var zeit = el("span", "sz-zeit", z.zeit);
+      var text = el("span", "sz-text");
+      text.appendChild(el("span", "sz-titel", z.titel));
+      text.appendChild(el("span", "sz-meta", z.info));
+      var eff = el("span", "sz-effekt" + (z.m > 0 ? " spaeter" : z.m < 0 ? " frueher" : ""), z.m ? versatz(z.m) : "pünktlich");
+      b.appendChild(zeit);
+      b.appendChild(text);
+      b.appendChild(eff);
+      b.setAttribute("aria-label", z.titel + " startet jetzt. " + z.info + ". Alles danach " + (z.m ? versatz(z.m) : "unverändert") + ".");
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }
+
+  function syncSetzen(id) {
+    var x = slotVon(id);
+    if (!x) { return; }
+    var t = jetzt();
+    var m = Math.round((t - x.start) / MIN);
+    var eintrag = { art: "sync", zeit: t, id: id };
+    historie.push(eintrag);
+    $("d-sync").close();
+    geaendert();
+    melde("Sync: " + zitat(slotTitel(x)) + " läuft seit " + uhrzeit(t) + "." + (m ? " Alles danach " + versatz(m) + "." : ""), eintrag);
   }
 
   /* ---------- Ablauf aus Excel einfügen ---------- */
@@ -1076,7 +1407,7 @@
   }
 
   function setzeAblauf(roh, alsEigen) {
-    if (historie.length && !window.confirm("Die heutigen Verlängerungen werden dabei zurückgesetzt. Weiter?")) { return false; }
+    if (historie.length && !window.confirm("Die heutigen Änderungen am Plan werden dabei zurückgesetzt. Weiter?")) { return false; }
     eigenerAblauf = alsEigen ? { titel: roh.titel, tag: roh.tag, abschnitte: roh.abschnitte } : null;
     schreib(KEY.ablauf, eigenerAblauf);
     ablauf = normalisiere(alsEigen ? eigenerAblauf : window.AGENDA);
@@ -1106,8 +1437,7 @@
   /* ---------- Einstellungen ---------- */
 
   function zeigeTonSchnell() {
-    var b = $("ton-schnell");
-    b.setAttribute("aria-pressed", E.ton ? "true" : "false");
+    $("ton-schnell").setAttribute("aria-pressed", E.ton ? "true" : "false");
     setzeText($("ton-schnell-text"), E.ton ? "Ton an" : "Ton aus");
   }
 
@@ -1147,14 +1477,10 @@
         $("agenda-text").value = "";
         pruefeImport();
         $("d-einst").close();
-        zeigeToast("Neuer Ablauf übernommen.", null, 4000);
       }
     });
     $("agenda-standard").addEventListener("click", function () {
-      if (setzeAblauf(null, false)) {
-        $("d-einst").close();
-        zeigeToast("Standard-Ablauf wiederhergestellt.", null, 4000);
-      }
+      if (setzeAblauf(null, false)) { $("d-einst").close(); }
     });
     $("probe-start").addEventListener("click", function () {
       var z = $("probe-zeit").value || "12:00";
@@ -1180,20 +1506,24 @@
   /* ---------- Start ---------- */
 
   function verbinde() {
-    document.addEventListener("pointerdown", function () { entsperren(); wachHalten(); }, true);
+    /* Ton entsperren: Browser zählen je nach Gerät unterschiedliche Ereignisse als Berührung */
+    ["pointerdown", "pointerup", "touchend", "click", "keydown"].forEach(function (art) {
+      document.addEventListener(art, function () { entsperren(); wachHalten(); }, true);
+    });
     document.addEventListener("keydown", function (e) {
-      entsperren();
-      wachHalten();
-      if (e.key === "Escape" && document.body.classList.contains("fokus") && !document.fullscreenElement) { fokus(false); }
-    }, true);
+      if (e.key !== "Escape") { return; }
+      if (!$("meldungen-pop").hidden) { schliesseMeldungen(); return; }
+      if (document.body.classList.contains("fokus") && !document.fullscreenElement) { fokus(false); }
+    });
 
     $("verlaengern").addEventListener("click", oeffneVerlaengern);
+    $("einschub").addEventListener("click", oeffneEinschub);
+    $("sync").addEventListener("click", oeffneSync);
     $("ton-schnell").addEventListener("click", function () {
       E.ton = !E.ton;
       speichereEinst();
       zeigeTonSchnell();
       zeigeTonHinweis();
-      zeigeToast(E.ton ? "Ton an: Am Ende jedes Abschnitts kommt ein Signal." : "Ton aus.", null, 3000);
     });
     $("ton-hinweis").addEventListener("click", function () { entsperren(); spiele("vorwarnung"); });
     $("fokus").addEventListener("click", function () { fokus(!document.body.classList.contains("fokus")); });
@@ -1210,47 +1540,74 @@
       speichereStumm();
       version++;
       tick();
-      var neu = $("liste").querySelector('.glocke[data-id="' + id.replace(/["\\]/g, "\\$&") + '"]');
+      var neu = $("liste").querySelector('.glocke[data-id="' + attrSicher(id) + '"]');
       if (neu) { neu.focus(); }
     });
-    $("rueckgaengig").addEventListener("click", function () { rueckgaengig(null); });
+    $("aend-liste").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest(".aend-x") : null;
+      if (!b) { return; }
+      var h = historie[Number(b.getAttribute("data-n"))];
+      if (h) { entferne(h); }
+    });
+    $("rueckgaengig").addEventListener("click", function () {
+      if (historie.length) { entferne(historie[historie.length - 1]); }
+    });
     $("alle-zurueck").addEventListener("click", function () {
-      if (!historie.length || !window.confirm("Alle Verlängerungen von heute zurücksetzen? Dann gilt wieder der ursprüngliche Plan.")) { return; }
+      if (!historie.length || !window.confirm("Alle Änderungen von heute zurücksetzen? Dann gilt wieder der ursprüngliche Plan.")) { return; }
       historie = [];
-      speichereTag();
-      neuBerechnen();
-      tick();
-      zeigeToast("Zurück auf den ursprünglichen Plan.", null, 3000);
+      geaendert();
     });
 
+    /* Dialog Verlängern / Einschub */
     $("dv-min").addEventListener("change", function (e) {
       if (!dv || e.target.name !== "dv-plus") { return; }
       dv.plus = Number(e.target.value);
       dvKuerzen();
-      zeichneDv();
+      zeichneDv(true);
     });
     $("dv-welcher-opts").addEventListener("change", function (e) {
       if (!dv || e.target.name !== "dv-ziel") { return; }
       dv.zielId = e.target.value;
-      var zi = indexVon(dv.zielId);
-      Object.keys(dv.abzug).forEach(function (id) { if (indexVon(id) <= zi) { delete dv.abzug[id]; } });
-      dvAufraeumen();
-      zeichneDv();
+      zeichneDv(true);
     });
+    $("dv-name").addEventListener("input", function () { if (dv) { dv.name = this.value; zeichneDv(false); } });
+    $("dv-wann").addEventListener("change", function () { if (dv) { dv.wann = Number(this.value) || 0; zeichneDv(true); } });
     $("dv-liste").addEventListener("click", dvKlick);
     $("dv-ok").addEventListener("click", dvUebernehmen);
     $("dv-abbrechen").addEventListener("click", function () { $("d-verl").close(); });
     $("d-verl").addEventListener("close", function () { dv = null; });
 
+    /* Dialog Sync */
+    $("ds-liste").addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest(".sync-zeile") : null;
+      if (b) { syncSetzen(b.getAttribute("data-id")); }
+    });
+    $("ds-abbrechen").addEventListener("click", function () { $("d-sync").close(); });
+
     /* Klick auf den dunklen Hintergrund schließt die Dialoge */
-    ["d-verl", "d-einst"].forEach(function (id) {
+    ["d-verl", "d-einst", "d-sync"].forEach(function (id) {
       $(id).addEventListener("click", function (e) { if (e.target === this) { this.close(); } });
     });
 
-    $("toast-undo").addEventListener("click", function () {
-      var f = toastUndo;
-      versteckeToast();
-      if (f) { f(); }
+    /* Sternchen: Erklärungen in Dialogen auf- und zuklappen */
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest(".info-stern") : null;
+      if (!b) { return; }
+      var ziel = $(b.getAttribute("aria-controls"));
+      if (!ziel) { return; }
+      var auf = ziel.hidden;
+      ziel.hidden = !auf;
+      b.setAttribute("aria-expanded", auf ? "true" : "false");
+    });
+
+    /* Sternchen unten rechts: Hinweise lesen */
+    $("stern-fab").addEventListener("click", function () {
+      if ($("meldungen-pop").hidden) { oeffneMeldungen(); } else { schliesseMeldungen(); }
+    });
+    $("meldungen-zu").addEventListener("click", schliesseMeldungen);
+    document.addEventListener("click", function (e) {
+      if ($("meldungen-pop").hidden) { return; }
+      if (!$("meldungen").contains(e.target)) { schliesseMeldungen(); }
     });
 
     document.addEventListener("visibilitychange", function () {
@@ -1267,8 +1624,7 @@
   function start() {
     if (probe) {
       $("probe").hidden = false;
-      $("probe-text").textContent = "Probelauf: Die Uhr startete bei " + probe.text +
-        (probe.tempo > 1 ? " und läuft " + probe.tempo + "× schneller" : "") + ". Verlängerungen werden nicht gespeichert.";
+      $("probe-text").textContent = "Probelauf ab " + probe.text + (probe.tempo > 1 ? " · " + probe.tempo + "×" : "");
     }
     ladeTag();
     ladeStumm();
