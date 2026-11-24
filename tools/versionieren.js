@@ -15,7 +15,7 @@ const path = require("path");
 const crypto = require("crypto");
 
 const ROOT = path.join(__dirname, "..");
-const SEITEN = ["index.html", "impressum.html", "datenschutz.html"];
+const SEITEN = ["index.html", "impressum.html", "datenschutz.html", "time/index.html"];
 
 function kurzHash(datei) {
   return crypto.createHash("sha1").update(fs.readFileSync(path.join(ROOT, datei))).digest("hex").slice(0, 8);
@@ -28,8 +28,10 @@ function versioniere() {
     if (!fs.existsSync(pfad)) { continue; }
     const html = fs.readFileSync(pfad, "utf8");
     const neu = html.replace(/(\b(?:href|src)=")((?:css|js)\/[^"?]+)(?:\?v=[0-9a-f]+)?(")/g, (treffer, vorn, datei, hinten) => {
-      if (!fs.existsSync(path.join(ROOT, datei))) { return treffer; }
-      return vorn + datei + "?v=" + kurzHash(datei) + hinten;
+      /* Pfade gelten relativ zur Seite (z. B. time/css/… für time/index.html) */
+      const ziel = path.join(path.dirname(seite), datei);
+      if (!fs.existsSync(path.join(ROOT, ziel))) { return treffer; }
+      return vorn + datei + "?v=" + kurzHash(ziel) + hinten;
     });
     if (neu !== html) { fs.writeFileSync(pfad, neu); geaendert.push(seite); }
   }

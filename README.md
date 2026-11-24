@@ -60,6 +60,22 @@ Alles Inhaltliche steht in **`js/ergebnisse.js`**, mit Anleitung direkt in der D
 
 Die fünf Fragen stehen in `js/fragen.js` (2 bis 6 Antworten pro Frage, Anzahl der Fragen frei). Die Antworten beeinflussen das Ergebnis nicht.
 
+## Timekeeper unter `/time`
+
+Eine zweite, eigenständige Seite für Coaches im selben Look: `time/index.html` (Adresse: `…/time/`). Sie ist nicht von der Startseite verlinkt und für Suchmaschinen gesperrt (`noindex`).
+
+- **Läuft nach der Uhr:** Die App zeigt, welcher Abschnitt gerade dran ist, die Restzeit als großen Countdown, den Fortschritt und was danach kommt. Vor dem Start, in Lücken des Plans und nach dem letzten Abschnitt zählt sie bis zum nächsten Start herunter bzw. meldet „Geschafft“.
+- **Ton am Ende:** Glocke, Gong oder Signal, Lautstärke, optional eine leise Vorwarnung 1 bis 5 Minuten vorher. Einzelne Abschnitte lassen sich im Ablauf über die Glocke stummschalten. Browser spielen Ton erst nach einer ersten Berührung der Seite ab, und nicht, wenn das Handy gesperrt ist. Darum hält die App den Bildschirm an (wo der Browser das kann).
+- **Verlängern um 1 bis 5 Minuten:** Danach wählt man, bei welchen späteren Abschnitten die Zeit wieder weggenommen wird (antippen = ganze Zeit dort, mit − und + aufteilen). Alles dazwischen verschiebt sich, alles danach bleibt wie geplant. Ohne Auswahl verschiebt sich der Rest des Tages. Auch der gerade beendete Abschnitt lässt sich noch bis 10 Minuten danach verlängern. Jede Änderung kann rückgängig gemacht werden.
+- **Zeitmodell:** Ein Abschnitt beginnt nie vor seiner Startzeit, aber später, wenn der vorige länger läuft. Lücken im Plan (z. B. 12:50 bis 13:00) fangen eine Verlängerung auf.
+- **Groß-Ansicht** für Beamer oder das quergehaltene Handy.
+
+**Ablauf ändern:** in `time/js/agenda.js` (Anleitung in der Datei). Oder direkt in der App: Einstellungen → „Ablauf aus Excel einfügen“, dort die Zeilen aus der Excel-Tabelle (Spalten Start bis Wer, gern mit Überschrift und Titelzeile) hineinkopieren. Ein so eingefügter Ablauf gilt nur auf diesem Gerät.
+
+**Was gespeichert wird:** Einstellungen, stummgeschaltete Abschnitte, ein eingefügter Ablauf und die Verlängerungen des Tages liegen im `localStorage` des Browsers (nur auf diesem Gerät, nichts wird übertragen). Die Verlängerungen gelten nur für den jeweiligen Tag. Jedes Gerät hat seinen eigenen Stand: Verlängert eine Coachin auf ihrem Handy, sieht das ein anderes Gerät nicht.
+
+**Probelauf:** Einstellungen → Probelauf, oder direkt `time/?zeit=15:45&tempo=10` (Uhr startet um 15:45 und läuft zehnmal so schnell). Im Probelauf wird nichts vom Tagesstand gespeichert.
+
 ## Nach Änderungen an Design oder Skripten
 
 GitHub Pages lässt Dateien bis zu 10 Minuten im Cache. Damit Besucher nach einer Änderung nicht das neue HTML mit altem CSS oder Skript sehen, tragen die Einbindungen Versionsnummern (`css/challenge-check.css?v=…`). Nach Änderungen an `css/` oder `js/` einmal ausführen:
@@ -79,6 +95,7 @@ node tools/versionieren.js
 - `css/challenge-check.css`: Gestaltung; die Farben stehen oben unter `:root`
 - `impressum.html`, `datenschutz.html`: Entwürfe, Angaben in eckigen Klammern ergänzen
 - `fonts/`: lokal eingebundene Schriften (kein Abruf bei Google)
+- `time/`: der Timekeeper (`index.html`, `js/agenda.js` = Ablauf, `js/timekeeper.js` = Logik, `css/timekeeper.css`)
 
 ## Veröffentlichen
 

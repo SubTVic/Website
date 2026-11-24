@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Timekeeper</title>
+  <meta name="description" content="Timekeeping für Coaches: Was gerade dran ist und wie lange es noch läuft.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#002350">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Timekeeper">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/timekeeper.css?v=77fdfc15">
+</head>
+<body data-phase="leer">
+  <a class="skip" href="#main">Zum Inhalt springen</a>
+
+  <header class="kopf">
+    <div class="wrap kopf-innen">
+      <a class="marke" href="./" aria-label="Timekeeper, neu laden">
+        <span class="stern stern-neon" aria-hidden="true"></span>
+        <span>Timekeeper</span>
+      </a>
+      <span class="kopf-rechts" id="kopf-titel"></span>
+    </div>
+  </header>
+
+  <div class="leiste">
+    <div class="wrap leiste-innen">
+      <p class="tag-titel" id="tag-titel"></p>
+      <p class="uhr"><span class="sr-only">Uhrzeit: </span><span id="uhr">--:--:--</span></p>
+    </div>
+  </div>
+
+  <div class="probe" id="probe" hidden>
+    <div class="wrap probe-innen">
+      <p id="probe-text"></p>
+      <a href="./">Probelauf beenden</a>
+    </div>
+  </div>
+
+  <main id="main">
+    <noscript>
+      <div class="wrap"><p class="noscript">Der Timekeeper braucht JavaScript. Bitte aktiviere es in deinem Browser.</p></div>
+    </noscript>
+
+    <div class="wrap buehne">
+      <!-- Jetzt -->
+      <section class="jetzt" aria-labelledby="j-titel">
+        <div class="j-kopf">
+          <p class="mini" id="j-status">Jetzt</p>
+          <span class="chips" id="j-chips"></span>
+        </div>
+        <h1 id="j-titel">Ablauf wird geladen …</h1>
+
+        <div class="countdown" id="j-countdown">
+          <p class="cd-label" id="j-cd-label">Noch</p>
+          <p class="cd-zahl" id="j-zahl">--:--</p>
+        </div>
+        <div class="balken" id="j-balken" aria-hidden="true"><i id="j-fuell"></i></div>
+        <p class="j-zeit" id="j-zeit"></p>
+
+        <div class="j-aktionen">
+          <button type="button" class="btn btn-neon" id="verlaengern">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Verlängern
+          </button>
+          <button type="button" class="btn btn-ghost btn-klein" id="ton-schnell" aria-pressed="true">
+            <svg class="ico ico-an" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>
+            <svg class="ico ico-aus" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/><path d="M4 4l16 16"/></svg>
+            <span id="ton-schnell-text">Ton an</span>
+          </button>
+          <button type="button" class="btn btn-ghost btn-klein" id="fokus" aria-pressed="false">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+            <span id="fokus-text">Groß</span>
+          </button>
+          <button type="button" class="btn btn-ghost btn-klein" id="einst-oeffnen">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+            Einstellungen
+          </button>
+        </div>
+
+        <button type="button" class="ton-hinweis" id="ton-hinweis" hidden>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+          <span>Ton ist an. Tippe hier einmal, damit dein Browser ihn abspielen darf.</span>
+        </button>
+
+        <div class="danach" id="danach" hidden>
+          <p class="mini mini-hell" id="danach-label">Danach</p>
+          <p class="danach-titel" id="danach-titel"></p>
+          <p class="danach-meta" id="danach-meta"></p>
+        </div>
+      </section>
+
+      <!-- Ablauf -->
+      <section class="karte ablauf" aria-labelledby="ablauf-titel">
+        <div class="ablauf-kopf">
+          <h2 id="ablauf-titel">Ablauf</h2>
+          <p class="tagesende" id="tagesende"></p>
+        </div>
+        <ol class="liste" id="liste"></ol>
+
+        <div class="aenderungen" id="aenderungen" hidden>
+          <h3>Änderungen heute</h3>
+          <ul id="aend-liste"></ul>
+          <div class="aend-aktionen">
+            <button type="button" class="btn-text" id="rueckgaengig">Letzte rückgängig</button>
+            <button type="button" class="btn-text" id="alle-zurueck">Alle zurücksetzen</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="ticker" aria-hidden="true"><div class="spur" id="ticker"></div></div>
+
+  <footer class="fuss">
+    <div class="wrap fuss-innen">
+      <span>Timekeeper · Design Thinking</span>
+      <nav aria-label="Rechtliches">
+        <a href="../impressum.html">Impressum</a>
+        <a href="../datenschutz.html">Datenschutz</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- Verlängern -->
+  <dialog class="sheet" id="d-verl" aria-labelledby="dv-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Verlängern</p>
+        <h2 id="dv-titel"></h2>
+
+        <fieldset class="gruppe" id="dv-welcher" hidden>
+          <legend>Welchen Abschnitt?</legend>
+          <div class="wahl-reihe" id="dv-welcher-opts"></div>
+        </fieldset>
+
+        <fieldset class="gruppe">
+          <legend>Um wie viele Minuten?</legend>
+          <div class="minuten" id="dv-min">
+            <input type="radio" name="dv-plus" id="dv-p1" value="1"><label for="dv-p1">+1</label>
+            <input type="radio" name="dv-plus" id="dv-p2" value="2"><label for="dv-p2">+2</label>
+            <input type="radio" name="dv-plus" id="dv-p3" value="3"><label for="dv-p3">+3</label>
+            <input type="radio" name="dv-plus" id="dv-p4" value="4"><label for="dv-p4">+4</label>
+            <input type="radio" name="dv-plus" id="dv-p5" value="5"><label for="dv-p5">+5</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="gruppe">
+          <legend>Wo nimmst du die Zeit weg?</legend>
+          <p class="hilfe">Tippe einen späteren Abschnitt an, dann wird die ganze Zeit dort abgezogen. Mit − und + kannst du sie aufteilen. Ohne Auswahl verschiebt sich alles danach.</p>
+          <ul class="dv-liste" id="dv-liste"></ul>
+        </fieldset>
+      </div>
+
+      <div class="sheet-fuss">
+        <p class="dv-fazit" id="dv-fazit" aria-live="polite"></p>
+        <div class="sheet-knoepfe">
+          <button type="button" class="btn-text" id="dv-abbrechen">Abbrechen</button>
+          <button type="button" class="btn btn-neon" id="dv-ok">Übernehmen</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Einstellungen -->
+  <dialog class="sheet" id="d-einst" aria-labelledby="de-titel">
+    <div class="sheet-innen">
+      <div class="sheet-body">
+        <p class="sheet-mini">Timekeeper</p>
+        <h2 id="de-titel">Einstellungen</h2>
+
+        <fieldset class="gruppe">
+          <legend>Ton</legend>
+          <label class="schalter">
+            <input type="checkbox" id="e-ton">
+            <span class="schalter-text">Ton, wenn ein Abschnitt abläuft</span>
+            <span class="schalter-knopf" aria-hidden="true"></span>
+          </label>
+          <p class="hilfe">Einzelne Abschnitte kannst du im Ablauf über die Glocke stummschalten.</p>
+
+          <p class="feld-label" id="e-klang-label">Klang</p>
+          <div class="wahl-reihe drei" role="radiogroup" aria-labelledby="e-klang-label">
+            <input type="radio" name="e-klang" id="e-k-glocke" value="glocke"><label for="e-k-glocke">Glocke</label>
+            <input type="radio" name="e-klang" id="e-k-gong" value="gong"><label for="e-k-gong">Gong</label>
+            <input type="radio" name="e-klang" id="e-k-signal" value="signal"><label for="e-k-signal">Signal</label>
+          </div>
+
+          <div class="laut-reihe">
+            <label class="feld-label" for="e-laut">Lautstärke</label>
+            <input type="range" id="e-laut" min="10" max="100" step="5">
+            <button type="button" class="btn btn-navy btn-klein" id="e-anhoeren">Anhören</button>
+          </div>
+
+          <label class="feld-label" for="e-vorwarnung">Vorwarnung</label>
+          <select id="e-vorwarnung" class="auswahl">
+            <option value="0">Keine</option>
+            <option value="1">1 Minute vorher (leiser Ton)</option>
+            <option value="2">2 Minuten vorher (leiser Ton)</option>
+            <option value="3">3 Minuten vorher (leiser Ton)</option>
+            <option value="5">5 Minuten vorher (leiser Ton)</option>
+          </select>
+        </fieldset>
+
+        <fieldset class="gruppe">
+          <legend>Bildschirm</legend>
+          <label class="schalter">
+            <input type="checkbox" id="e-wach">
+            <span class="schalter-text">Bildschirm anlassen, solange die App offen ist</span>
+            <span class="schalter-knopf" aria-hidden="true"></span>
+          </label>
+          <p class="hilfe" id="e-wach-status"></p>
+          <p class="hilfe">Wichtig: Ist das Handy gesperrt oder die App im Hintergrund, spielt der Browser keinen Ton ab.</p>
+        </fieldset>
+
+        <fieldset class="gruppe">
+          <legend>Ablauf</legend>
+          <p class="hilfe" id="agenda-info"></p>
+          <label class="feld-label" for="agenda-text">Ablauf aus Excel einfügen</label>
+          <textarea id="agenda-text" rows="5" spellcheck="false" placeholder="In Excel die Zeilen markieren (Spalten Start bis Wer, gern mit Überschrift), kopieren und hier einfügen."></textarea>
+          <p class="hilfe" id="agenda-vorschau" aria-live="polite"></p>
+          <div class="knopf-reihe">
+            <button type="button" class="btn btn-navy btn-klein" id="agenda-ok" disabled>Diesen Ablauf übernehmen</button>
+            <button type="button" class="btn-text" id="agenda-standard" hidden>Standard-Ablauf wiederherstellen</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="gruppe">
+          <legend>Probelauf</legend>
+          <p class="hilfe">Startet die Uhr zu einer anderen Zeit, zum Ausprobieren von Ton und Verlängern. Im Probelauf wird nichts gespeichert.</p>
+          <div class="knopf-reihe">
+            <label class="sr-only" for="probe-zeit">Startzeit</label>
+            <input type="time" id="probe-zeit" class="auswahl auswahl-klein" step="60">
+            <label class="sr-only" for="probe-tempo">Tempo</label>
+            <select id="probe-tempo" class="auswahl auswahl-klein">
+              <option value="1">Echtzeit</option>
+              <option value="10">10× schneller</option>
+              <option value="60">60× schneller</option>
+            </select>
+            <button type="button" class="btn btn-navy btn-klein" id="probe-start">Starten</button>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="sheet-fuss">
+        <div class="sheet-knoepfe">
+          <span></span>
+          <button type="button" class="btn btn-neon" id="de-schliessen">Fertig</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <p id="toast-text"></p>
+    <button type="button" class="toast-knopf" id="toast-undo" hidden>Rückgängig</button>
+  </div>
+  <div class="blitz" id="blitz" aria-hidden="true"></div>
+  <p class="sr-only" id="ansage" aria-live="assertive"></p>
+
+  <script src="js/agenda.js?v=12b9d0a5"></script>
+  <script src="js/timekeeper.js?v=a8657258"></script>
+</body>
+</html>
