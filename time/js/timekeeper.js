@@ -344,10 +344,10 @@
     for (var v = 0; v < plan.length; v++) {
       if (zaehlt(plan[v]) && plan[v].ende <= t && v !== lg.laufend) { vorbei.push(v); }
     }
-    k = vorbei.slice(-3);
+    k = vorbei.slice();
     if (lg.laufend >= 0) { k.push(lg.laufend); }
     var ab = lg.laufend >= 0 ? lg.laufend + 1 : (lg.naechster >= 0 ? lg.naechster : plan.length);
-    for (var j = ab; j < plan.length && k.length < 6; j++) { if (zaehlt(plan[j])) { k.push(j); } }
+    for (var j = ab, kommend = 0; j < plan.length && kommend < 5; j++) { if (zaehlt(plan[j])) { k.push(j); kommend++; } }
     return k;
   }
 
@@ -1282,33 +1282,22 @@
   /* ---------- Sync: „Das startet jetzt“ ---------- */
 
   var syncSig = "";
-  var syncZeit = null; /* null = jetzt (läuft mit), sonst fester Zeitpunkt */
 
   function oeffneSync() {
     var t = jetzt();
     var lg = lage(plan, t);
     if (!syncKandidaten(lg, t).length) { return; }
     syncSig = "";
-    syncZeit = null;
     dialogZuruecksetzen($("d-sync"));
     zeichneSync();
     $("d-sync").showModal();
   }
 
-  function syncStart() { return syncZeit === null ? jetzt() : syncZeit; }
-
   function zeichneSync() {
     var t = jetzt();
-    var T = syncStart();
+    var T = t;
     var lg = lage(plan, t);
     var k = syncKandidaten(lg, t);
-    var zukunft = T > t + 1000;
-    var feld = $("ds-zeit");
-    if (document.activeElement !== feld) { feld.value = uhrzeit(T); }
-    $("ds-reihe").querySelector(".jetzt-knopf").setAttribute("aria-pressed", syncZeit === null ? "true" : "false");
-    var fehler = $("ds-fehler");
-    fehler.hidden = !zukunft;
-    setzeText(fehler, zukunft ? "Die Startzeit darf nicht nach jetzt (" + uhrzeit(t) + ") liegen." : "");
     setzeText($("ds-uhr"), "jetzt " + uhrzeit(t));
 
     var zeilen = k.map(function (i) {
@@ -1331,7 +1320,7 @@
     /* Laufendes und Kommendes zuerst, darunter Vergangenes (jüngstes zuerst) */
     zeilen = zeilen.filter(function (z) { return !z.vergangen; })
       .concat(zeilen.filter(function (z) { return z.vergangen; }).reverse());
-    var sig = JSON.stringify([uhrzeit(T), zukunft, zeilen]);
+    var sig = JSON.stringify([uhrzeit(T), zeilen]);
     if (sig === syncSig) { return; }
     syncSig = sig;
     var ul = $("ds-liste");
@@ -1342,7 +1331,6 @@
       var li = el("li");
       var b = el("button", "sync-zeile" + (z.vergangen ? " vergangen" : ""));
       b.type = "button";
-      b.disabled = zukunft;
       b.setAttribute("data-id", z.id);
       var text = el("span", "sz-text");
       text.appendChild(el("span", "sz-titel", z.titel));
@@ -1350,7 +1338,7 @@
       b.appendChild(el("span", "sz-zeit", z.zeit));
       b.appendChild(text);
       b.appendChild(el("span", "sz-effekt" + (z.m > 0 ? " spaeter" : z.m < 0 ? " frueher" : ""), z.m ? versatz(z.m) : "pünktlich"));
-      b.setAttribute("aria-label", z.titel + " hat um " + uhrzeit(T) + " angefangen. " + z.info + ". Alles danach " + (z.m ? versatz(z.m) : "unverändert") + ".");
+      b.setAttribute("aria-label", z.titel + " startet jetzt. " + z.info + ". Alles danach " + (z.m ? versatz(z.m) : "unverändert") + ".");
       li.appendChild(b);
       ul.appendChild(li);
     });
@@ -1359,7 +1347,7 @@
   function syncSetzen(id) {
     var x = slotVon(id);
     var t = jetzt();
-    var T = Math.min(syncStart(), t);
+    var T = t;
     if (!x) { return; }
     var m = Math.round((T - x.start) / MIN);
     var eintrag = { art: "sync", zeit: T, id: id };
@@ -1699,17 +1687,6 @@
       if (b) { syncSetzen(b.getAttribute("data-id")); }
     });
     $("ds-abbrechen").addEventListener("click", function () { $("d-sync").close(); });
-    $("ds-zeit").addEventListener("input", function () {
-      var m = zuMinuten(this.value);
-      if (m != null) { syncZeit = tag0 + m * MIN; zeichneSync(); }
-    });
-    $("ds-reihe").addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("button[data-d]") : null;
-      if (!b) { return; }
-      var d = Number(b.getAttribute("data-d"));
-      syncZeit = d === 0 ? null : Math.floor(syncStart() / MIN) * MIN + d * MIN;
-      zeichneSync();
-    });
 
     /* Klick auf den dunklen Hintergrund schließt die Dialoge */
     ["d-verl", "d-einst", "d-sync", "d-ende"].forEach(function (id) {
