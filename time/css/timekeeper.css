@@ -259,7 +259,7 @@ body.fokus .j-zeit-reihe { justify-content: center; }
   min-width: 0;
 }
 .ablauf-kopf { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem 1rem; margin-bottom: .6rem; }
-.ablauf h2 { margin: 0; font: 700 clamp(1.5rem, 3vw, 1.9rem)/1.1 var(--f-cond); color: var(--navy); }
+.ablauf h2 { margin: 0; display: flex; align-items: center; font: 700 clamp(1.5rem, 3vw, 1.9rem)/1.1 var(--f-cond); color: var(--navy); }
 .tagesende { margin: 0; font-size: .95rem; color: var(--grau); }
 .tagesende strong { color: var(--navy); }
 .tagesende .verzug { color: #a63513; font-weight: 700; }
@@ -281,6 +281,11 @@ body.fokus .j-zeit-reihe { justify-content: center; }
 .z-balken i { display: block; height: 100%; width: 0; background: var(--teal); }
 
 .zeile.laeuft { background: rgba(0, 241, 130, .16); box-shadow: inset 5px 0 0 var(--teal); }
+.zeile.planbar { cursor: pointer; transition: background .15s; }
+.zeile.planbar:focus-visible { outline: 3px solid var(--link); outline-offset: -3px; }
+@media (hover: hover) { .zeile.planbar:hover { background: #f2f6f6; } }
+.zeile.planbar:active { background: #e6eeee; }
+#dp-weg { color: #a63513; }
 .zeile.laeuft .z-titel { font-weight: 700; color: var(--teal); }
 .zeile.einschub:not(.laeuft) { background: rgba(0, 241, 130, .07); }
 .zeile.vorbei .z-zeit, .zeile.vorbei .z-inhalt { opacity: .5; }
