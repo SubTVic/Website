@@ -138,7 +138,7 @@
 
   /* ---------- Einstellungen und Zustand ---------- */
 
-  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer" };
+  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer", puffer: true };
   (function () {
     var s = lies(KEY.einst) || {};
     Object.keys(E).forEach(function (k) { if (s[k] != null && typeof s[k] === typeof E[k]) { E[k] = s[k]; } });
@@ -180,8 +180,60 @@
      Ergebnis: Liste von Zeilen { a, id, dauerId, art ("normal" | "einschub"),
      teil (0, 1 = unterbrochen, 2 = Fortsetzung), planStart, planEnde, start, ende, dauer (min), i } */
 
+  /* Zeitplan mit automatischem Ausgleich: Verzug, der über eine Lücke im Plan
+     hinaus weiterwirken würde, wird zuerst von Puffern, dann von Pausen und
+     Übergängen aufgefangen (Pausen höchstens bis zur Hälfte). Arbeitszeiten
+     werden nie automatisch gekürzt. Gekürzt werden nur Abschnitte, bei denen
+     der Verzug schon angekommen ist (also nach seiner Ursache). */
   function berechne(hist) {
+    var auto = {};
+    var res = berechneRoh(hist, auto);
+    if (!E.puffer) { return res; }
+    for (var n = 0; n < 60; n++) {
+      var z = findeAusgleich(res);
+      if (!z) { break; }
+      auto[z.id] = (auto[z.id] || 0) - z.min;
+      res = berechneRoh(hist, auto);
+    }
+    res.forEach(function (x) { x.auto = auto[x.dauerId] ? -auto[x.dauerId] : 0; });
+    return res;
+  }
+
+  function ausgleichKapazitaet(x, art) {
+    if (x.art !== "normal" || x.teil) { return 0; }
+    var k = typKlasse(x.a.typ);
+    var kap;
+    if (art === "puffer" && k === "puffer") { kap = x.dauer; }
+    else if (art === "pause" && (k === "pause" || k === "uebergang")) { kap = x.dauer - Math.ceil(x.a.dauer / 2); }
+    else { return 0; }
+    var angekommen = (x.start - x.planStart) / MIN;   /* nur so viel, wie Verzug schon da ist */
+    return Math.max(0, Math.min(kap, angekommen));
+  }
+
+  function findeAusgleich(res) {
+    var segStart = 0;
+    for (var i = 0; i < res.length; i++) {
+      var naechste = res[i + 1];
+      var luecke = naechste ? Math.max(0, naechste.planStart - res[i].planEnde) : 0;
+      if (naechste && luecke === 0) { continue; }
+      var leck = (res[i].ende - res[i].planEnde - luecke) / MIN;
+      if (leck >= 0.5) {
+        var arten = ["puffer", "pause"];
+        for (var a = 0; a < arten.length; a++) {
+          for (var k = segStart; k <= i; k++) {
+            var kap = ausgleichKapazitaet(res[k], arten[a]);
+            if (kap >= 0.5) { return { id: res[k].dauerId, min: Math.min(leck, kap) }; }
+          }
+        }
+      }
+      segStart = i + 1;
+    }
+    return null;
+  }
+
+  function berechneRoh(hist, auto) {
     var d = {};
+    Object.keys(auto || {}).forEach(function (id) { d[id] = auto[id]; });
     var anker = {};
     var kinder = {};
     var umbenannt = {};
@@ -754,6 +806,7 @@
       if (!zaehlt(x)) { teile.push("entfällt"); }
       else { teile.push(Math.round(x.dauer) + " min, bis " + uhrzeit(x.ende)); }
       if (x.teil === 1) { teile.push("unterbrochen"); }
+      if (x.auto >= 0.5) { teile.push(typKlasse(x.a.typ) === "puffer" ? "Puffer genutzt" : "automatisch gekürzt"); }
       meta.appendChild(el("span", "", teile.join(" · ")));
       if (x.art === "normal" && !x.teil && zaehlt(x)) {
         var diff = Math.round(x.dauer) - x.a.dauer;
@@ -1664,6 +1717,7 @@
     $("e-laut").value = E.laut;
     $("e-vorwarnung").value = String(E.vorwarnung);
     $("e-wach").checked = E.wach;
+    $("e-puffer").checked = E.puffer;
     zeigeWachStatus();
     zeigeAblaufInfo();
     var erst = ablauf.abschnitte[0];
@@ -1681,6 +1735,7 @@
     $("e-laut").addEventListener("change", function () { entsperren(); spiele("vorwarnung"); });
     $("e-anhoeren").addEventListener("click", function () { entsperren(); spiele(E.klang); vibriere([200, 100, 200]); });
     $("e-vorwarnung").addEventListener("change", function () { E.vorwarnung = Number(this.value) || 0; speichereEinst(); });
+    $("e-puffer").addEventListener("change", function () { E.puffer = this.checked; speichereEinst(); neuBerechnen(); letzterTick = jetzt(); tick(); });
     $("e-wach").addEventListener("change", function () {
       E.wach = this.checked;
       speichereEinst();
