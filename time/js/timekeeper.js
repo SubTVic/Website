@@ -189,7 +189,7 @@
       var art = h.art || "plus";
       if (art === "plus" || art === "ende" || art === "plan") { d[h.id] = (d[h.id] || 0) + (h.plus || 0); }
       if (art === "plan") {
-        umbenannt[h.id] = { titel: h.titel, typ: h.typ };
+        if (h.titel || h.typ != null) { umbenannt[h.id] = { titel: h.titel, typ: h.typ }; }
         if (h.start != null) { anker[h.ziel] = h.start; }
       }
       else if (art === "sync") { anker[h.id] = h.zeit; }
@@ -808,7 +808,7 @@
     if (art === "sync") { return uhrzeit(h.zeit) + " · Sync: " + zitat(titelVon(h.id)) + " gestartet"; }
     if (art === "plan") {
       var teile = [];
-      if (h.alterTitel && h.titel !== h.alterTitel) { teile.push("heißt jetzt " + zitat(h.titel)); }
+      if (h.titel && h.alterTitel && h.titel !== h.alterTitel) { teile.push("heißt jetzt " + zitat(h.titel)); }
       if (h.alterTyp != null && h.typ !== h.alterTyp) { teile.push("Typ " + (h.typ || "keiner")); }
       if (h.plus || h.start != null) {
         teile.push(h.nachher === 0 ? "entfällt" : (h.von != null ? uhrzeit(h.von) + "–" + uhrzeit(h.bis) + " (" + h.nachher + " min)" : h.vorher + " → " + h.nachher + " min"));
@@ -1309,7 +1309,6 @@
   /* ---------- Planen: kommende Abschnitte im Ablauf ändern ---------- */
 
   var dp = null; /* { zielId, von, bis } */
-  var TYP_VORSCHLAEGE = ["Input", "Aktion", "Pause / Mittag", "Übergang", "Puffer", "Check-in/out, Retro", "Nur Coaches", "Einschub"];
 
   function minuteGenau(t) { return Math.round(t / MIN) * MIN; }
 
@@ -1318,14 +1317,6 @@
     if (!x || x.start <= jetzt()) { return; }
     dp = { zielId: id, von: minuteGenau(x.start), bis: minuteGenau(x.ende) };
     setzeText($("dp-titel"), zitat(slotTitel(x)));
-    $("dp-name").value = x.a.titel;
-    var sel = $("dp-typ");
-    sel.textContent = "";
-    var typen = TYP_VORSCHLAEGE.slice();
-    ablauf.abschnitte.forEach(function (a) { if (a.typ && typen.indexOf(a.typ) < 0) { typen.push(a.typ); } });
-    if (x.a.typ && typen.indexOf(x.a.typ) < 0) { typen.push(x.a.typ); }
-    [""].concat(typen).forEach(function (ty) { var o = el("option", "", ty || "(kein Typ)"); o.value = ty; sel.appendChild(o); });
-    sel.value = x.a.typ || "";
     $("dp-von").value = uhrzeit(dp.von);
     $("dp-bis").value = uhrzeit(dp.bis);
     zeichnePlan();
@@ -1341,8 +1332,7 @@
     var neueDauer = Math.max(0, bisEff - vonEff) / MIN;
     return {
       art: "plan", zeit: jetzt(), id: x.dauerId, ziel: x.id,
-      titel: sauber($("dp-name").value) || x.a.titel, typ: $("dp-typ").value,
-      alterTitel: x.a.titel, alterTyp: x.a.typ || "",
+      alterTitel: x.a.titel,
       start: startNeu ? dp.von : null,
       plus: Math.abs(neueDauer - x.dauer) < 0.01 ? 0 : neueDauer - x.dauer,
       vorher: Math.round(x.dauer), nachher: Math.round(neueDauer),
@@ -1373,7 +1363,7 @@
     }
     $("dp-weg").hidden = dp.bis === dp.von;
     $("dp-zurueck").hidden = !(dp.bis === dp.von && x.a.dauer > 0);
-    var geaendertJa = !!e && (e.plus !== 0 || e.start != null || e.titel !== e.alterTitel || e.typ !== e.alterTyp);
+    var geaendertJa = !!e && (e.plus !== 0 || e.start != null);
     $("dp-ok").disabled = !geaendertJa;
   }
 
@@ -1779,8 +1769,6 @@
         oeffnePlan(e.target.getAttribute("data-plan"));
       }
     });
-    $("dp-name").addEventListener("input", function () { if (dp) { zeichnePlan(); } });
-    $("dp-typ").addEventListener("change", function () { if (dp) { zeichnePlan(); } });
     $("dp-von").addEventListener("input", function () {
       var m = zuMinuten(this.value);
       if (!dp || m == null) { return; }
