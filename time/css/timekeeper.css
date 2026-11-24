@@ -444,6 +444,11 @@ body.fokus .j-zeit-reihe { justify-content: center; }
 .sz-effekt.frueher { color: #1b6b3f; }
 .sync-zeile.vergangen { border-style: dashed; }
 .sync-trenner { margin: .8rem 0 0; }
+#ds-body { padding-top: 0; }
+.sync-kopf { position: sticky; top: 0; z-index: 2; background: #fff; padding-top: var(--kp); padding-bottom: .6rem; }
+.sync-kopf h2 { margin-bottom: 0; }
+.sync-kopf .blase { margin-top: .6rem; margin-bottom: 0; }
+.sync-platz { list-style: none; }
 .sync-zeile.vergangen .sz-zeit { color: var(--grau); }
 .sync-zeile:disabled { opacity: .45; cursor: not-allowed; }
 .ende-reihe .jetzt-knopf { font-size: .9rem; padding: 0 .5rem; }

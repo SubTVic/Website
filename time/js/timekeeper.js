@@ -1289,8 +1289,9 @@
     if (!syncKandidaten(lg, t).length) { return; }
     syncSig = "";
     dialogZuruecksetzen($("d-sync"));
-    zeichneSync();
+    $("ds-liste").textContent = "";
     $("d-sync").showModal();
+    zeichneSync();
   }
 
   function zeichneSync() {
@@ -1317,17 +1318,25 @@
       }
       return { id: x.id, titel: slotTitel(x), zeit: uhrzeit(x.start), info: info, m: Math.round((T - x.start) / MIN), vergangen: vergangen };
     });
-    /* Laufendes und Kommendes zuerst, darunter Vergangenes (jüngstes zuerst) */
-    zeilen = zeilen.filter(function (z) { return !z.vergangen; })
-      .concat(zeilen.filter(function (z) { return z.vergangen; }).reverse());
+    /* Chronologisch: Vergangenes oben (per Scrollen erreichbar), Jetzt und Kommendes darunter */
     var sig = JSON.stringify([uhrzeit(T), zeilen]);
     if (sig === syncSig) { return; }
     syncSig = sig;
     var ul = $("ds-liste");
+    var body = $("ds-body");
+    var merkJetzt = ul.querySelector(".sync-jetzt");
+    var abstand = merkJetzt ? merkJetzt.getBoundingClientRect().top - body.getBoundingClientRect().top : null;
     ul.textContent = "";
-    var trenner = false;
+    var hatVergangene = zeilen.some(function (z) { return z.vergangen; });
+    if (hatVergangene) {
+      ul.appendChild(el("li", "feld-label sync-trenner", "Schon vorbei"));
+    }
+    var jetztGesetzt = false;
     zeilen.forEach(function (z) {
-      if (z.vergangen && !trenner) { trenner = true; ul.appendChild(el("li", "feld-label sync-trenner", "Schon vorbei")); }
+      if (!z.vergangen && !jetztGesetzt) {
+        jetztGesetzt = true;
+        ul.appendChild(el("li", "feld-label sync-trenner sync-jetzt", "Jetzt und als Nächstes"));
+      }
       var li = el("li");
       var b = el("button", "sync-zeile" + (z.vergangen ? " vergangen" : ""));
       b.type = "button";
@@ -1342,6 +1351,18 @@
       li.appendChild(b);
       ul.appendChild(li);
     });
+    /* Platz unten, damit „Jetzt“ ganz nach oben gescrollt werden kann */
+    var platz = el("li", "sync-platz");
+    ul.appendChild(platz);
+    var jetztKopf = ul.querySelector(".sync-jetzt");
+    if (jetztKopf && body.clientHeight) {
+      var kopfHoehe = body.querySelector(".sync-kopf").offsetHeight;
+      var unterhalb = ul.getBoundingClientRect().bottom - jetztKopf.getBoundingClientRect().top;
+      platz.style.height = Math.max(0, body.clientHeight - kopfHoehe - unterhalb) + "px";
+      /* Beim Öffnen: „Jetzt“ direkt unter die Überschrift; beim Aktualisieren: Position halten */
+      var ziel = abstand === null ? kopfHoehe : abstand;
+      body.scrollTop += jetztKopf.getBoundingClientRect().top - body.getBoundingClientRect().top - ziel;
+    }
   }
 
   function syncSetzen(id) {

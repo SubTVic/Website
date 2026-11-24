@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=825e4260">
+  <link rel="stylesheet" href="css/timekeeper.css?v=a97639bc">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -224,12 +224,14 @@
   <!-- Sync -->
   <dialog class="sheet" id="d-sync" aria-labelledby="ds-titel">
     <div class="sheet-innen">
-      <div class="sheet-body">
+      <div class="sheet-body" id="ds-body">
+        <div class="sync-kopf">
         <p class="sheet-mini">Sync · <span id="ds-uhr"></span></p>
         <h2 class="mit-stern" id="ds-titel">Was startet jetzt?
           <button type="button" class="info-stern" aria-expanded="false" aria-controls="ds-hilfe" aria-label="Erklärung anzeigen"><span class="stern stern-teal" aria-hidden="true"></span></button>
         </h2>
-        <p class="blase" id="ds-hilfe" hidden>Tippe an, was gerade wirklich anfängt, auch wenn es laut Plan schon vorbei ist. Es startet dann jetzt, alles danach rückt nach (auch nach vorne). Was dazwischen liegt, entfällt.</p>
+        <p class="blase" id="ds-hilfe" hidden>Tippe an, was gerade wirklich anfängt, auch wenn es laut Plan schon vorbei ist. Es startet dann jetzt, alles danach rückt nach (auch nach vorne). Was dazwischen liegt, entfällt. Vergangene Abschnitte: nach oben scrollen.</p>
+        </div>
         <ul class="sync-liste" id="ds-liste"></ul>
       </div>
       <div class="sheet-fuss">
@@ -346,6 +348,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=6dea44e8"></script>
+  <script src="js/timekeeper.js?v=b29d6314"></script>
 </body>
 </html>
