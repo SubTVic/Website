@@ -226,20 +226,10 @@
     <div class="sheet-innen">
       <div class="sheet-body">
         <p class="sheet-mini">Sync · <span id="ds-uhr"></span></p>
-        <h2 class="mit-stern" id="ds-titel">Was hat angefangen?
+        <h2 class="mit-stern" id="ds-titel">Was startet jetzt?
           <button type="button" class="info-stern" aria-expanded="false" aria-controls="ds-hilfe" aria-label="Erklärung anzeigen"><span class="stern stern-teal" aria-hidden="true"></span></button>
         </h2>
-        <p class="blase" id="ds-hilfe" hidden>Startzeit wählen (Standard: jetzt), dann antippen, was zu dieser Zeit wirklich angefangen hat. Auch schon vergangene Abschnitte gehen. Alles danach rückt nach, auch nach vorne. Was dazwischen liegt, entfällt.</p>
-        <label class="feld-label" for="ds-zeit">Angefangen um</label>
-        <div class="ende-reihe" id="ds-reihe">
-          <button type="button" data-d="-5" aria-label="5 Minuten früher">−5</button>
-          <button type="button" data-d="-1" aria-label="1 Minute früher">−1</button>
-          <input type="time" id="ds-zeit" class="auswahl zeit-gross" step="60">
-          <button type="button" data-d="1" aria-label="1 Minute später">+1</button>
-          <button type="button" data-d="0" class="jetzt-knopf" aria-label="Auf jetzt setzen">Jetzt</button>
-        </div>
-        <p class="dn-info fehler" id="ds-fehler" hidden></p>
-        <p class="feld-label">Was hat da angefangen?</p>
+        <p class="blase" id="ds-hilfe" hidden>Tippe an, was gerade wirklich anfängt, auch wenn es laut Plan schon vorbei ist. Es startet dann jetzt, alles danach rückt nach (auch nach vorne). Was dazwischen liegt, entfällt.</p>
         <ul class="sync-liste" id="ds-liste"></ul>
       </div>
       <div class="sheet-fuss">
@@ -356,6 +346,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=27e0c4ad"></script>
+  <script src="js/timekeeper.js?v=6dea44e8"></script>
 </body>
 </html>
