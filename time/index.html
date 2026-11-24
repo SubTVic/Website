@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=4846131c">
+  <link rel="stylesheet" href="css/timekeeper.css?v=c937319e">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -240,13 +240,15 @@
             <select id="dp-typ" class="auswahl"></select>
           </div>
         </div>
-        <label class="feld-label" for="dp-dauer">Dauer (Minuten)</label>
-        <div class="ende-reihe" id="dp-reihe">
-          <button type="button" data-d="-5" aria-label="5 Minuten kürzer">−5</button>
-          <button type="button" data-d="-1" aria-label="1 Minute kürzer">−1</button>
-          <input type="number" id="dp-dauer" class="auswahl zeit-gross" min="0" max="600" step="1" inputmode="numeric">
-          <button type="button" data-d="1" aria-label="1 Minute länger">+1</button>
-          <button type="button" data-d="5" aria-label="5 Minuten länger">+5</button>
+        <div class="zwei-felder gleich">
+          <div>
+            <label class="feld-label" for="dp-von">Start</label>
+            <input type="time" id="dp-von" class="auswahl zeit-gross" step="60">
+          </div>
+          <div>
+            <label class="feld-label" for="dp-bis">Ende</label>
+            <input type="time" id="dp-bis" class="auswahl zeit-gross" step="60">
+          </div>
         </div>
         <p class="dn-info" id="dp-info" aria-live="polite"></p>
         <div class="knopf-reihe">
@@ -390,6 +392,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=14ee7f75"></script>
+  <script src="js/timekeeper.js?v=3957c182"></script>
 </body>
 </html>
