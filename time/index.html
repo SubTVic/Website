@@ -316,6 +316,16 @@
         </fieldset>
 
         <fieldset class="gruppe">
+          <legend>Verzug ausgleichen</legend>
+          <label class="schalter">
+            <input type="checkbox" id="e-puffer">
+            <span class="schalter-text">Puffer und Pausen automatisch kürzen</span>
+            <span class="schalter-knopf" aria-hidden="true"></span>
+          </label>
+          <p class="hilfe">Bei Verzug werden zuerst Puffer, dann Pausen (höchstens bis zur Hälfte) gekürzt, Arbeitszeiten nie.</p>
+        </fieldset>
+
+        <fieldset class="gruppe">
           <legend>Bildschirm</legend>
           <label class="schalter">
             <input type="checkbox" id="e-wach">
@@ -382,6 +392,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=bc28f28e"></script>
+  <script src="js/timekeeper.js?v=26c7d807"></script>
 </body>
 </html>
