@@ -188,15 +188,29 @@
   function berechne(hist) {
     var auto = {};
     var res = berechneRoh(hist, auto);
-    if (!E.puffer) { return res; }
-    for (var n = 0; n < 60; n++) {
+    for (var n = 0; E.puffer && n < 60; n++) {
       var z = findeAusgleich(res);
       if (!z) { break; }
       auto[z.id] = (auto[z.id] || 0) - z.min;
       res = berechneRoh(hist, auto);
     }
     res.forEach(function (x) { x.auto = auto[x.dauerId] ? -auto[x.dauerId] : 0; });
+    /* Tag beendet: was danach käme, entfällt; was läuft, endet da */
+    var schluss = schlussZeit(hist);
+    if (schluss !== null) {
+      res.forEach(function (x) {
+        if (x.start >= schluss) { x.start = x.ende = schluss; }
+        else if (x.ende > schluss) { x.ende = schluss; }
+        x.dauer = Math.max(0, x.ende - x.start) / MIN;
+      });
+    }
     return res;
+  }
+
+  function schlussZeit(hist) {
+    var z = null;
+    (hist || historie).forEach(function (h) { if (h.art === "schluss") { z = h.zeit; } });
+    return z;
   }
 
   function ausgleichKapazitaet(x, art) {
@@ -690,9 +704,12 @@
       tabTitel = zahl + " bis " + titel;
     } else if (lg.phase === "fertig") {
       var te = tagesende(plan);
-      status = "Geschafft";
+      var beendet = schlussZeit();
+      status = beendet !== null ? "Tag beendet" : "Geschafft";
       titel = "Der Tag ist durch.";
-      zeit = "Letzter Abschnitt endete um " + uhrzeit(te.ende) + (Math.round((te.ende - te.plan) / MIN) ? " (geplant: " + uhrzeit(te.plan) + ")" : "") + ".";
+      zeit = beendet !== null
+        ? "Beendet um " + uhrzeit(beendet) + ". Den Tagesbericht gibt’s unten im Ablauf."
+        : "Letzter Abschnitt endete um " + uhrzeit(te.ende) + (Math.round((te.ende - te.plan) / MIN) ? " (geplant: " + uhrzeit(te.plan) + ")" : "") + ".";
     } else {
       status = "Kein Ablauf";
       titel = "Noch kein Ablauf hinterlegt";
@@ -732,10 +749,11 @@
       setzeText($("danach-meta"), uhrzeit(danach.start) + "–" + uhrzeit(danach.ende) + " · " + Math.round(danach.dauer) + " min" + (danach.a.typ ? " · " + danach.a.typ : ""));
     }
 
-    $("verlaengern").disabled = !kandidaten(lg, t).length;
-    $("sync").disabled = !syncKandidaten(lg, t).length;
+    var tagZu = schlussZeit() !== null;
+    $("verlaengern").disabled = tagZu || !kandidaten(lg, t).length;
+    $("sync").disabled = tagZu || !syncKandidaten(lg, t).length;
     $("ende-knopf").hidden = lg.phase !== "laeuft";
-    $("einschub").disabled = lg.phase === "leer" || lg.phase === "fertig";
+    $("einschub").disabled = tagZu || lg.phase === "leer" || lg.phase === "fertig";
     if (document.title !== tabTitel) { document.title = tabTitel; }
 
     /* Ansage, wenn ein neuer Abschnitt beginnt (nicht beim ersten Laden) */
@@ -858,6 +876,7 @@
 
   function aenderungText(h) {
     var art = h.art || "plus";
+    if (art === "schluss") { return uhrzeit(h.zeit) + " · Tag beendet"; }
     if (art === "sync") { return uhrzeit(h.zeit) + " · Sync: " + zitat(titelVon(h.id)) + " gestartet"; }
     if (art === "plan") {
       var teile = [];
@@ -1726,6 +1745,138 @@
     $("d-einst").showModal();
   }
 
+  /* ---------- Tag beenden und Bericht ---------- */
+
+  function datumDeutsch(t) { var d = new Date(t); return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); }
+
+  function berichtZeilen() {
+    return plan.map(function (x) {
+      var status = !zaehlt(x) ? "entfallen"
+        : x.art === "einschub" ? "eingeschoben"
+        : x.teil === 1 ? "unterbrochen"
+        : x.teil === 2 ? "Fortsetzung"
+        : x.auto >= 0.5 ? (typKlasse(x.a.typ) === "puffer" ? "Puffer genutzt" : "automatisch gekürzt")
+        : "";
+      var mitPlan = x.art === "normal" && x.teil !== 2;
+      var abw = mitPlan && zaehlt(x) ? Math.round((x.ende - x.planEnde) / MIN) : null;
+      return {
+        titel: slotTitel(x), typ: x.a.typ || "",
+        planStart: mitPlan ? uhrzeit(x.planStart) : "", planEnde: mitPlan ? uhrzeit(x.planEnde) : "",
+        planDauer: mitPlan ? x.a.dauer : "",
+        istStart: zaehlt(x) ? uhrzeit(x.start) : "", istEnde: zaehlt(x) ? uhrzeit(x.ende) : "",
+        istDauer: zaehlt(x) ? Math.round(x.dauer) : 0,
+        startAbw: mitPlan && zaehlt(x) ? Math.round((x.start - x.planStart) / MIN) : null,
+        abw: abw, status: status
+      };
+    });
+  }
+
+  function berichtKopf() {
+    var te = tagesende(plan);
+    var erster = plan.filter(zaehlt)[0];
+    var titel = [ablauf.titel, ablauf.tag].filter(Boolean).join(" · ") || "Ablauf";
+    var d = Math.round((te.ende - te.plan) / MIN);
+    return {
+      titel: titel, datum: datumDeutsch(tag0),
+      plan: (ablauf.abschnitte.length ? minutenText(ablauf.abschnitte[0].start) : "") + "–" + (te.plan !== null ? uhrzeit(te.plan) : ""),
+      ist: (erster ? uhrzeit(erster.start) : "") + "–" + (te.ende !== null ? uhrzeit(te.ende) : ""),
+      abw: d, anzahl: historie.length
+    };
+  }
+
+  function berichtText() {
+    var k = berichtKopf();
+    var z = [k.titel + " – " + k.datum, "Geplant " + k.plan + ", tatsächlich " + k.ist + (k.abw ? " (" + versatz(k.abw) + ")" : " (pünktlich)"), "", "ABLAUF (tatsächlich, in Klammern geplant)"];
+    berichtZeilen().forEach(function (r) {
+      var zeit = r.istStart ? r.istStart + "–" + r.istEnde : "entfallen";
+      var plan = r.planStart && (r.planStart !== r.istStart || r.planEnde !== r.istEnde) ? " (" + r.planStart + "–" + r.planEnde + ")" : "";
+      z.push(zeit + plan + "  " + r.titel + (r.status && r.status !== "entfallen" ? " [" + r.status + "]" : ""));
+    });
+    z.push("", "ÄNDERUNGEN (" + historie.length + ")");
+    if (!historie.length) { z.push("keine"); }
+    historie.forEach(function (h) { z.push(aenderungText(h)); });
+    return z.join("\n");
+  }
+
+  function csvFeld(v) {
+    v = v == null ? "" : String(v);
+    return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function berichtCsv() {
+    var k = berichtKopf();
+    var z = [];
+    z.push([k.titel, k.datum].map(csvFeld).join(";"));
+    z.push(["Geplant", k.plan, "Tatsächlich", k.ist, "Abweichung (min)", k.abw].map(csvFeld).join(";"));
+    z.push("");
+    z.push(["Abschnitt", "Typ", "Plan Start", "Plan Ende", "Plan Dauer (min)", "Ist Start", "Ist Ende", "Ist Dauer (min)", "Start verschoben (min)", "Ende verschoben (min)", "Status"].join(";"));
+    berichtZeilen().forEach(function (r) {
+      z.push([r.titel, r.typ, r.planStart, r.planEnde, r.planDauer, r.istStart, r.istEnde, r.istDauer,
+        r.startAbw === null ? "" : r.startAbw, r.abw === null ? "" : r.abw, r.status].map(csvFeld).join(";"));
+    });
+    z.push("");
+    z.push(["Uhrzeit", "Änderung"].join(";"));
+    historie.forEach(function (h) {
+      var t = aenderungText(h);
+      z.push([t.slice(0, 5), t.slice(8)].map(csvFeld).join(";"));
+    });
+    return "\ufeff" + z.join("\r\n");
+  }
+
+  function oeffneSchluss() {
+    var k = berichtKopf();
+    var beendet = schlussZeit() !== null;
+    setzeText($("ds2-info"), k.datum + " · Geplant " + k.plan + " · tatsächlich " + k.ist + (k.abw ? " (" + versatz(k.abw) + ")" : "") + " · " + k.anzahl + (k.anzahl === 1 ? " Änderung" : " Änderungen"));
+    $("ds2-beenden").hidden = beendet || lage(plan, jetzt()).phase === "leer";
+    $("ds2-wieder").hidden = !beendet;
+    $("ds2-status").textContent = "";
+    $("ds2-teilen").hidden = !navigator.share;
+    $("d-schluss").showModal();
+  }
+
+  function schlussStatus(text) { setzeText($("ds2-status"), text); }
+
+  function verbindeSchluss() {
+    $("schluss-knopf").addEventListener("click", oeffneSchluss);
+    $("ds2-schliessen").addEventListener("click", function () { $("d-schluss").close(); });
+    $("ds2-beenden").addEventListener("click", function () {
+      var eintrag = { art: "schluss", zeit: jetzt() };
+      historie.push(eintrag);
+      geaendert();
+      melde("Tag beendet um " + uhrzeit(eintrag.zeit) + ".", eintrag);
+      oeffneSchluss();
+      schlussStatus("Tag beendet. Jetzt den Bericht kopieren, teilen oder herunterladen.");
+    });
+    $("ds2-wieder").addEventListener("click", function () {
+      historie = historie.filter(function (h) { return h.art !== "schluss"; });
+      geaendert();
+      oeffneSchluss();
+      schlussStatus("Tag läuft wieder.");
+    });
+    $("ds2-kopieren").addEventListener("click", function () {
+      var text = berichtText();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { schlussStatus("Bericht kopiert."); }, function () { schlussStatus("Kopieren hat nicht geklappt."); });
+      } else { schlussStatus("Kopieren geht in diesem Browser nicht."); }
+    });
+    $("ds2-teilen").addEventListener("click", function () {
+      var k = berichtKopf();
+      navigator.share({ title: "Tagesbericht " + k.datum, text: berichtText() }).catch(function () {});
+    });
+    $("ds2-csv").addEventListener("click", function () {
+      var blob = new Blob([berichtCsv()], { type: "text/csv;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "Tagesbericht-" + datumText(tag0) + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      schlussStatus("CSV heruntergeladen (öffnet sich in Excel).");
+    });
+  }
+
   function verbindeEinst() {
     $("e-ton").addEventListener("change", function () { E.ton = this.checked; speichereEinst(); zeigeTonSchnell(); zeigeTonHinweis(); });
     document.querySelectorAll('input[name="e-klang"]').forEach(function (r) {
@@ -1896,7 +2047,7 @@
     $("ds-abbrechen").addEventListener("click", function () { $("d-sync").close(); });
 
     /* Klick auf den dunklen Hintergrund schließt die Dialoge */
-    ["d-verl", "d-einst", "d-sync", "d-ende", "d-plan"].forEach(function (id) {
+    ["d-verl", "d-einst", "d-sync", "d-ende", "d-plan", "d-schluss"].forEach(function (id) {
       $(id).addEventListener("click", function (e) { if (e.target === this) { this.close(); } });
     });
 
@@ -1930,6 +2081,7 @@
     });
 
     verbindeEinst();
+    verbindeSchluss();
   }
 
   function start() {

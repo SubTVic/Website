@@ -597,3 +597,9 @@ body.fokus .j-aktionen:hover, body.fokus .j-aktionen:focus-within { opacity: 1; 
   .btn, .balken i, .cd-zahl { transition: none; animation: none; }
   .ton-pille, .stern-fab .stern, .info-stern.ploppt, .stern-fab.ploppt, .blase, .meldungen-pop { animation: none; }
 }
+
+/* ---------- Tag beenden ---------- */
+.schluss-reihe { margin-top: 1.2rem; display: flex; justify-content: flex-end; }
+.knopf-spalte { display: grid; gap: .6rem; margin-top: 1rem; }
+.knopf-spalte .btn { width: 100%; }
+#ds2-status { color: #1b6b3f; }
