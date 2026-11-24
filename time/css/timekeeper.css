@@ -442,6 +442,12 @@ body.fokus .j-zeit-reihe { justify-content: center; }
 .sz-effekt { font: 700 .95rem/1 var(--f-kopf); white-space: nowrap; color: var(--grau); font-variant-numeric: tabular-nums; }
 .sz-effekt.spaeter { color: #a63513; }
 .sz-effekt.frueher { color: #1b6b3f; }
+.sync-zeile.vergangen { border-style: dashed; }
+.sync-trenner { margin: .8rem 0 0; }
+.sync-zeile.vergangen .sz-zeit { color: var(--grau); }
+.sync-zeile:disabled { opacity: .45; cursor: not-allowed; }
+.ende-reihe .jetzt-knopf { font-size: .9rem; padding: 0 .5rem; }
+.ende-reihe .jetzt-knopf[aria-pressed="true"] { background: var(--teal); color: var(--neon); border-color: var(--teal); }
 
 /* Einstellungen */
 .schalter { display: flex; align-items: center; gap: 1rem; padding: .4rem 0; cursor: pointer; }
