@@ -353,10 +353,18 @@
           <legend>Verzug ausgleichen</legend>
           <label class="schalter">
             <input type="checkbox" id="e-puffer">
-            <span class="schalter-text">Puffer und Pausen automatisch kürzen</span>
+            <span class="schalter-text">Automatisch im Plan bleiben</span>
             <span class="schalter-knopf" aria-hidden="true"></span>
           </label>
-          <p class="hilfe">Bei Verzug werden zuerst Puffer, dann Pausen (höchstens bis zur Hälfte) gekürzt, Arbeitszeiten nie.</p>
+          <p class="hilfe">Puffer und Pausen fangen Verzug zuerst auf (Pausen höchstens bis zur Hälfte). Was du selbst geändert hast, bleibt, wie es ist.</p>
+          <label class="feld-label" for="e-toleranz">Andere Abschnitte kürzen, wenn sie später enden als</label>
+          <select id="e-toleranz" class="auswahl">
+            <option value="1">1 Minute nach Plan</option>
+            <option value="2">2 Minuten nach Plan</option>
+            <option value="3">3 Minuten nach Plan</option>
+            <option value="5">5 Minuten nach Plan</option>
+            <option value="-1">Nie (nur Puffer und Pausen kürzen)</option>
+          </select>
         </fieldset>
 
         <fieldset class="gruppe">
@@ -428,6 +436,6 @@
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
   <script src="js/agenda.js?v=70308eb9"></script>
-  <script src="js/timekeeper.js?v=bee15274"></script>
+  <script src="js/timekeeper.js?v=7d69f86d"></script>
 </body>
 </html>
