@@ -603,3 +603,23 @@ body.fokus .j-aktionen:hover, body.fokus .j-aktionen:focus-within { opacity: 1; 
 .knopf-spalte { display: grid; gap: .6rem; margin-top: 1rem; }
 .knopf-spalte .btn { width: 100%; }
 #ds2-status { color: #1b6b3f; }
+
+/* ---------- Anmerkungen ---------- */
+.j-notiz {
+  display: flex; align-items: flex-start; gap: .55rem; margin: -.6rem 0 1.2rem; max-width: 40rem;
+  font-size: 1rem; line-height: 1.4; color: rgba(255, 249, 237, .88);
+}
+.j-notiz .stern { width: .95rem; height: .95rem; margin-top: .2rem; }
+.z-notiz { margin: .25rem 0 0; font-size: .86rem; line-height: 1.35; color: #4f5a5a; font-style: italic; }
+body.fokus .j-notiz { justify-content: center; margin-inline: auto; font-size: clamp(1rem, 2vw, 1.4rem); }
+
+/* ---------- Phasen (z. B. Crazy 8) ---------- */
+.phasen { display: flex; gap: 4px; margin: 1rem 0 0; }
+.phase {
+  flex: 1 1 0; min-width: 0; padding: .35rem 0; text-align: center; border-radius: 3px; overflow: hidden; white-space: nowrap;
+  background: rgba(255, 249, 237, .14); color: rgba(255, 249, 237, .75); font: 700 .85rem/1 var(--f-cond); text-transform: uppercase; letter-spacing: .06em;
+}
+.phase.vorbei { background: rgba(0, 241, 130, .35); color: var(--teal); }
+.phase.jetzt { background: var(--neon); color: var(--teal); }
+body.fokus .phasen { max-width: 70rem; margin-inline: auto; }
+body.fokus .phase { font-size: clamp(.85rem, 1.6vw, 1.3rem); padding: .6rem 0; }

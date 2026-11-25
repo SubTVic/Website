@@ -31,7 +31,7 @@
     stumm: "timekeeper.stumm"
   };
   var TYPEN = [
-    [/einschub/i, "einschub"], [/coach/i, "coaches"], [/check|retro/i, "check"], [/input/i, "input"], [/aktion/i, "aktion"],
+    [/einschub|energizer/i, "einschub"], [/coach/i, "coaches"], [/check|retro/i, "check"], [/input/i, "input"], [/aktion/i, "aktion"],
     [/puffer/i, "puffer"], [/übergang|uebergang/i, "uebergang"], [/pause|mittag/i, "pause"]
   ];
   var TICKER_ZUSATZ = ["Timekeeper", "Verstehen. Ideen finden. Bauen. Testen."];
@@ -109,7 +109,10 @@
       var id = minutenText(start) + " " + titel;
       while (ids[id]) { id += "+"; }
       ids[id] = true;
-      liste.push({ id: id, start: start, dauer: dauer, typ: sauber(a.typ), titel: titel, track: sauber(a.track), wer: sauber(a.wer) });
+      liste.push({
+        id: id, start: start, dauer: dauer, typ: sauber(a.typ), titel: titel, track: sauber(a.track), wer: sauber(a.wer),
+        notiz: sauber(a.notiz), phasen: Array.isArray(a.phasen) && a.phasen.length ? a.phasen : null
+      });
     });
     liste.sort(function (x, y) { return x.start - y.start; });
     return { titel: sauber(roh.titel), tag: sauber(roh.tag), abschnitte: liste };
@@ -131,14 +134,33 @@
     return el("span", "chip" + (k ? " chip-" + k : ""), typ);
   }
 
+  /* Welcher Tag? ?tag=mittwoch, sonst Einstellung, sonst nach Wochentag */
+  var TAGE = window.AGENDEN || (window.AGENDA ? { standard: window.AGENDA } : {});
+  var tagWahl = (function () {
+    var p = new URLSearchParams(window.location.search).get("tag");
+    if (p && TAGE[p.toLowerCase()]) { return p.toLowerCase(); }
+    var e = (lies(KEY.einst) || {}).tag;
+    return e && TAGE[e] ? e : "auto";
+  })();
+  var tagSchluessel = (function () {
+    if (tagWahl !== "auto") { return tagWahl; }
+    var wt = new Date(jetzt()).getDay();
+    var keys = Object.keys(TAGE);
+    for (var i = 0; i < keys.length; i++) { if (TAGE[keys[i]].wochentag === wt) { return keys[i]; } }
+    return keys[0] || null;
+  })();
+  function standardAblauf() { return TAGE[tagSchluessel] || {}; }
+
+  /* Ein in der App eingefügter Ablauf gilt nur an dem Tag, an dem er eingefügt wurde */
   var eigenerAblauf = lies(KEY.ablauf);
-  var ablauf = normalisiere(eigenerAblauf && eigenerAblauf.abschnitte ? eigenerAblauf : window.AGENDA);
-  if (!ablauf.abschnitte.length && eigenerAblauf) { eigenerAblauf = null; ablauf = normalisiere(window.AGENDA); }
+  if (eigenerAblauf && eigenerAblauf.datum !== datumText(jetzt())) { eigenerAblauf = null; }
+  var ablauf = normalisiere(eigenerAblauf && eigenerAblauf.abschnitte ? eigenerAblauf : standardAblauf());
+  if (!ablauf.abschnitte.length && eigenerAblauf) { eigenerAblauf = null; ablauf = normalisiere(standardAblauf()); }
   var ablaufKey = schluessel(ablauf);
 
   /* ---------- Einstellungen und Zustand ---------- */
 
-  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer", puffer: true };
+  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer", puffer: true, tag: "auto" };
   (function () {
     var s = lies(KEY.einst) || {};
     Object.keys(E).forEach(function (k) { if (s[k] != null && typeof s[k] === typeof E[k]) { E[k] = s[k]; } });
@@ -384,6 +406,30 @@
     return { ende: e, plan: pe };
   }
 
+  /* Phasen eines Abschnitts (z. B. Crazy 8): Liste { name, start, ende }, letzte Phase bis Abschnittsende */
+  function phasenListe(x) {
+    var ph = x.a.phasen;
+    if (!ph || x.art !== "normal" || x.teil || !zaehlt(x)) { return null; }
+    var out = [];
+    var t = x.start;
+    ph.forEach(function (p) {
+      var n = Math.max(1, Math.round(p.anzahl || 1));
+      for (var i = 0; i < n; i++) {
+        out.push({ name: n > 1 ? p.name + " " + (i + 1) + " von " + n : p.name, start: t, ende: t + (Number(p.dauer) || 1) * MIN });
+        t += (Number(p.dauer) || 1) * MIN;
+      }
+    });
+    out = out.filter(function (o) { return o.start < x.ende; });
+    if (!out.length) { return null; }
+    out[out.length - 1].ende = x.ende;
+    out.forEach(function (o) { o.ende = Math.min(o.ende, x.ende); });
+    return out;
+  }
+  function phaseBei(liste, t) {
+    for (var i = 0; i < liste.length; i++) { if (t < liste[i].ende) { return i; } }
+    return liste.length - 1;
+  }
+
   /* Wo stehen wir? laufend / naechster / letzter sind Indizes in plan (−1 = keiner) */
   function lage(p, t) {
     var lg = { laufend: -1, naechster: -1, letzter: -1, phase: "leer" };
@@ -503,6 +549,7 @@
     master.gain.value = Math.max(0.05, E.laut / 100) * 1.4;
     var t0 = ctx.currentTime + 0.06;
     if (art === "vorwarnung") { glockenschlag(t0, 1568, 0.55); }
+    else if (art === "phase") { glockenschlag(t0, 1318.5, 0.8); glockenschlag(t0 + 0.25, 1568, 0.7); }
     else { (KLAENGE[art] || KLAENGE.glocke)(t0); }
     return true;
   }
@@ -625,8 +672,15 @@
     if (letzterTick === null || t < letzterTick) { letzterTick = t; return; }
     var vorbei = null;
     var warnung = null;
+    var phase = null;
     plan.forEach(function (x) {
       if (!zaehlt(x)) { return; }
+      var pl = phasenListe(x);
+      if (pl) {
+        pl.slice(0, -1).forEach(function (o, i) {
+          if (o.ende > letzterTick && o.ende <= t && frisch(t - o.ende)) { phase = { x: x, naechste: pl[i + 1] }; }
+        });
+      }
       if (x.ende > letzterTick && x.ende <= t && frisch(t - x.ende)) { vorbei = x; }
       if (E.vorwarnung > 0 && x.dauer > E.vorwarnung) {
         var w = x.ende - E.vorwarnung * MIN;
@@ -635,7 +689,13 @@
     });
     letzterTick = t;
     if (vorbei) { abschnittVorbei(vorbei); }
+    else if (phase) { phasenWechsel(phase); }
     else if (warnung) { vorwarnen(warnung); }
+  }
+
+  function phasenWechsel(ph) {
+    ansagen("Jetzt: " + ph.naechste.name + ".");
+    if (E.ton && !stumm[ph.x.id]) { spiele("phase"); vibriere(150); }
   }
 
   function abschnittVorbei(x) {
@@ -671,6 +731,8 @@
     var chipsFuer = null;
     var knapp = false;
     var danach = null;
+    var phasen = null;
+    var notizFuer = null;
     var tabTitel = "Timekeeper";
 
     if (lg.phase === "laeuft") {
@@ -679,6 +741,7 @@
       status = x.teil === 2 ? "Jetzt geht’s weiter" : "Jetzt";
       titel = x.a.titel;
       chipsFuer = x;
+      notizFuer = x;
       cdLabel = "Noch";
       zahl = restText(rest);
       zeit = uhrzeit(x.start) + "–" + uhrzeit(x.ende) + " · " + Math.round(x.dauer) + " min";
@@ -690,11 +753,22 @@
       danach = naechsterNach(lg.laufend);
       $("j-fuell").style.width = Math.min(100, Math.max(0, (t - x.start) / (x.ende - x.start) * 100)).toFixed(2) + "%";
       tabTitel = zahl + " · " + titel;
+      var pl = phasenListe(x);
+      if (pl) {
+        var pi = phaseBei(pl, t);
+        phasen = { liste: pl, i: pi, id: x.id };
+        cdLabel = pl[pi].name;
+        zahl = restText(pl[pi].ende - t);
+        zeit = "Abschnitt noch " + restText(rest) + " · bis " + uhrzeit(x.ende);
+        knapp = pl[pi].ende - t <= 10000;
+        tabTitel = zahl + " · " + pl[pi].name;
+      }
     } else if (lg.phase === "vorher" || lg.phase === "frei") {
       var n = plan[lg.naechster];
       status = lg.phase === "vorher" ? "Gleich geht’s los" : "Frei bis " + uhrzeit(n.start);
       titel = slotTitel(n);
       chipsFuer = n;
+      notizFuer = n;
       cdLabel = "Beginnt in";
       zahl = restText(n.start - t);
       zeit = lg.phase === "vorher"
@@ -718,6 +792,11 @@
 
     setzeText($("j-status"), status);
     setzeText($("j-titel"), titel);
+    var nz = $("j-notiz");
+    var notiz = notizFuer && notizFuer.a.notiz ? notizFuer.a.notiz : "";
+    nz.hidden = !notiz;
+    setzeText($("j-notiz-text"), notiz);
+    zeichnePhasen(phasen, t);
     setzeText($("j-cd-label"), cdLabel);
     setzeText($("j-zahl"), zahl);
     var zeitEl = $("j-zeit");
@@ -762,6 +841,24 @@
       ansagen("Jetzt: " + slotTitel(plan[lg.laufend]) + ", bis " + uhrzeit(plan[lg.laufend].ende) + ".");
     }
     anzeige.laufendId = laufendId;
+  }
+
+  var phasenSig = "";
+  function zeichnePhasen(ph, t) {
+    var box = $("j-phasen");
+    var sig = ph ? ph.id + "|" + ph.i + "|" + ph.liste.length : "";
+    if (sig === phasenSig) { return; }
+    phasenSig = sig;
+    box.hidden = !ph;
+    box.textContent = "";
+    if (!ph) { return; }
+    ph.liste.forEach(function (o, i) {
+      var seg = el("span", "phase" + (i < ph.i ? " vorbei" : i === ph.i ? " jetzt" : ""));
+      seg.style.flexGrow = String(Math.max(1, Math.round((o.ende - o.start) / 1000)));
+      seg.title = o.name;
+      if (/^Feld /.test(o.name)) { seg.textContent = String(i + 1); } else { seg.textContent = o.name; }
+      box.appendChild(seg);
+    });
   }
 
   /* ---------- Anzeige: Ablauf ---------- */
@@ -816,6 +913,7 @@
 
       var inhalt = el("div", "z-inhalt");
       inhalt.appendChild(el("p", "z-titel", slotTitel(x)));
+      if (x.a.notiz && x.teil !== 2) { inhalt.appendChild(el("p", "z-notiz", x.a.notiz)); }
       var meta = el("p", "z-meta");
       if (x.a.typ) { meta.appendChild(chip(x.a.typ)); }
       var teile = [];
@@ -1696,9 +1794,9 @@
 
   function setzeAblauf(roh, alsEigen) {
     if (historie.length && !window.confirm("Die heutigen Änderungen am Plan werden dabei zurückgesetzt. Weiter?")) { return false; }
-    eigenerAblauf = alsEigen ? { titel: roh.titel, tag: roh.tag, abschnitte: roh.abschnitte } : null;
+    eigenerAblauf = alsEigen ? { titel: roh.titel, tag: roh.tag, abschnitte: roh.abschnitte, datum: datumText(jetzt()) } : null;
     schreib(KEY.ablauf, eigenerAblauf);
-    ablauf = normalisiere(alsEigen ? eigenerAblauf : window.AGENDA);
+    ablauf = normalisiere(alsEigen ? eigenerAblauf : standardAblauf());
     ablaufKey = schluessel(ablauf);
     historie = [];
     speichereTag();
@@ -1716,7 +1814,7 @@
     var ab = ablauf.abschnitte;
     var text = ab.length
       ? "Aktuell: " + (ablauf.tag || ablauf.titel || "Ablauf") + ", " + ab.length + " Abschnitte, " + minutenText(ab[0].start) + " bis " +
-        minutenText(ab[ab.length - 1].start + ab[ab.length - 1].dauer) + (eigenerAblauf ? " (eingefügt, nur auf diesem Gerät)." : " (Standard aus agenda.js).")
+        minutenText(ab[ab.length - 1].start + ab[ab.length - 1].dauer) + (eigenerAblauf ? " (eingefügt, nur heute und nur auf diesem Gerät)." : " (aus agenda.js).")
       : "Kein Ablauf hinterlegt.";
     setzeText($("agenda-info"), text);
     $("agenda-standard").hidden = !eigenerAblauf;
@@ -1729,7 +1827,24 @@
     setzeText($("ton-schnell-text"), E.ton ? "Ton an" : "Ton aus");
   }
 
+  var TAGNAMEN = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  function fuelleTagWahl() {
+    var sel = $("e-tag");
+    sel.textContent = "";
+    var heute = TAGE[tagSchluessel];
+    var auto = el("option", "", "Automatisch nach Wochentag" + (tagWahl === "auto" && heute ? " (heute: " + (heute.tag || tagSchluessel) + ")" : ""));
+    auto.value = "auto";
+    sel.appendChild(auto);
+    Object.keys(TAGE).forEach(function (k) {
+      var o = el("option", "", TAGE[k].tag || TAGNAMEN[TAGE[k].wochentag] || k);
+      o.value = k;
+      sel.appendChild(o);
+    });
+    sel.value = tagWahl;
+  }
+
   function oeffneEinst() {
+    fuelleTagWahl();
     $("e-ton").checked = E.ton;
     var k = document.querySelector('input[name="e-klang"][value="' + E.klang + '"]');
     if (k) { k.checked = true; }
@@ -1878,6 +1993,14 @@
   }
 
   function verbindeEinst() {
+    $("e-tag").addEventListener("change", function () {
+      if (historie.length && !window.confirm("Beim Wechsel des Tages werden die heutigen Änderungen am Plan zurückgesetzt. Weiter?")) { this.value = tagWahl; return; }
+      E.tag = this.value;
+      speichereEinst();
+      var u = new URL(window.location.href);
+      u.searchParams.delete("tag");
+      window.location.href = u.toString();
+    });
     $("e-ton").addEventListener("change", function () { E.ton = this.checked; speichereEinst(); zeigeTonSchnell(); zeigeTonHinweis(); });
     document.querySelectorAll('input[name="e-klang"]').forEach(function (r) {
       r.addEventListener("change", function () { if (this.checked) { E.klang = this.value; speichereEinst(); entsperren(); spiele(E.klang); } });
