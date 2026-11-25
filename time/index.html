@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="Timekeeper">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preload" href="../fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/timekeeper.css?v=d5b4d61d">
+  <link rel="stylesheet" href="css/timekeeper.css?v=ba9e48c8">
 </head>
 <body data-phase="leer">
   <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -59,11 +59,13 @@
           <span class="chips" id="j-chips"></span>
         </div>
         <h1 id="j-titel">Ablauf wird geladen …</h1>
+        <p class="j-notiz" id="j-notiz" hidden><span class="stern stern-neon" aria-hidden="true"></span><span id="j-notiz-text"></span></p>
 
         <div class="countdown" id="j-countdown">
           <p class="cd-label" id="j-cd-label">Noch</p>
           <p class="cd-zahl" id="j-zahl">--:--</p>
         </div>
+        <div class="phasen" id="j-phasen" aria-hidden="true" hidden></div>
         <div class="balken" id="j-balken" aria-hidden="true"><i id="j-fuell"></i></div>
         <div class="j-zeit-reihe">
           <p class="j-zeit" id="j-zeit"></p>
@@ -371,6 +373,8 @@
         <fieldset class="gruppe">
           <legend>Ablauf</legend>
           <p class="hilfe" id="agenda-info"></p>
+          <label class="feld-label" for="e-tag">Tag</label>
+          <select id="e-tag" class="auswahl"></select>
           <label class="feld-label" for="agenda-text">Ablauf aus Excel einfügen</label>
           <textarea id="agenda-text" rows="5" spellcheck="false" placeholder="In Excel die Zeilen markieren (Spalten Start bis Wer, gern mit Überschrift), kopieren und hier einfügen."></textarea>
           <p class="hilfe" id="agenda-vorschau" aria-live="polite"></p>
@@ -423,7 +427,7 @@
   <div class="blitz" id="blitz" aria-hidden="true"></div>
   <p class="sr-only" id="ansage" aria-live="assertive"></p>
 
-  <script src="js/agenda.js?v=10a6e7f3"></script>
-  <script src="js/timekeeper.js?v=79665dd5"></script>
+  <script src="js/agenda.js?v=70308eb9"></script>
+  <script src="js/timekeeper.js?v=bee15274"></script>
 </body>
 </html>
