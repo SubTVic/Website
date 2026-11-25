@@ -160,7 +160,7 @@
 
   /* ---------- Einstellungen und Zustand ---------- */
 
-  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer", puffer: true, tag: "auto" };
+  var E = { ton: true, klang: "glocke", laut: 80, vorwarnung: 0, wach: true, plus: 2, einschub: 3, einschubName: "Energizer", puffer: true, tag: "auto", toleranz: 2 };
   (function () {
     var s = lies(KEY.einst) || {};
     Object.keys(E).forEach(function (k) { if (s[k] != null && typeof s[k] === typeof E[k]) { E[k] = s[k]; } });
@@ -202,16 +202,20 @@
      Ergebnis: Liste von Zeilen { a, id, dauerId, art ("normal" | "einschub"),
      teil (0, 1 = unterbrochen, 2 = Fortsetzung), planStart, planEnde, start, ende, dauer (min), i } */
 
-  /* Zeitplan mit automatischem Ausgleich: Verzug, der über eine Lücke im Plan
-     hinaus weiterwirken würde, wird zuerst von Puffern, dann von Pausen und
-     Übergängen aufgefangen (Pausen höchstens bis zur Hälfte). Arbeitszeiten
-     werden nie automatisch gekürzt. Gekürzt werden nur Abschnitte, bei denen
-     der Verzug schon angekommen ist (also nach seiner Ursache). */
+  /* Zeitplan mit automatischem Ausgleich, damit der Tag im Plan bleibt:
+     - Puffer, Pausen und Übergänge fangen Verzug auf, sobald er bei ihnen
+       ankommt (Puffer bis ganz weg, Pausen höchstens bis zur Hälfte).
+     - Kein anderer Abschnitt endet mehr als E.toleranz Minuten nach Plan;
+       sonst wird er gekürzt (höchstens bis zur Hälfte).
+     - Was von Hand geändert wurde (Verlängern, Ende festlegen, Planen, Sync,
+       Abzug, Einschübe), wird nie automatisch gekürzt.
+     Gekürzt wird nur, wo der Verzug schon angekommen ist. */
   function berechne(hist) {
     var auto = {};
     var res = berechneRoh(hist, auto);
-    for (var n = 0; E.puffer && n < 60; n++) {
-      var z = findeAusgleich(res);
+    var fest = festeAbschnitte(hist);
+    for (var n = 0; E.puffer && n < 200; n++) {
+      var z = findeAusgleich(res, fest);
       if (!z) { break; }
       auto[z.id] = (auto[z.id] || 0) - z.min;
       res = berechneRoh(hist, auto);
@@ -235,34 +239,34 @@
     return z;
   }
 
-  function ausgleichKapazitaet(x, art) {
-    if (x.art !== "normal" || x.teil) { return 0; }
-    var k = typKlasse(x.a.typ);
-    var kap;
-    if (art === "puffer" && k === "puffer") { kap = x.dauer; }
-    else if (art === "pause" && (k === "pause" || k === "uebergang")) { kap = x.dauer - Math.ceil(x.a.dauer / 2); }
-    else { return 0; }
-    var angekommen = (x.start - x.planStart) / MIN;   /* nur so viel, wie Verzug schon da ist */
-    return Math.max(0, Math.min(kap, angekommen));
+  /* Kennungen, die von Hand geändert wurden und deshalb nicht automatisch gekürzt werden */
+  function festeAbschnitte(hist) {
+    var f = {};
+    hist.forEach(function (h) {
+      var art = h.art || "plus";
+      if (art === "plus" || art === "ende" || art === "plan") { f[h.id] = true; if (h.ziel) { f[h.ziel] = true; } }
+      if (art === "sync") { f[h.id] = true; }
+      (h.abzug || []).forEach(function (a) { f[a[0]] = true; });
+    });
+    return f;
   }
 
-  function findeAusgleich(res) {
-    var segStart = 0;
+  function findeAusgleich(res, fest) {
+    var tol = Math.max(0, Number(E.toleranz));
     for (var i = 0; i < res.length; i++) {
-      var naechste = res[i + 1];
-      var luecke = naechste ? Math.max(0, naechste.planStart - res[i].planEnde) : 0;
-      if (naechste && luecke === 0) { continue; }
-      var leck = (res[i].ende - res[i].planEnde - luecke) / MIN;
-      if (leck >= 0.5) {
-        var arten = ["puffer", "pause"];
-        for (var a = 0; a < arten.length; a++) {
-          for (var k = segStart; k <= i; k++) {
-            var kap = ausgleichKapazitaet(res[k], arten[a]);
-            if (kap >= 0.5) { return { id: res[k].dauerId, min: Math.min(leck, kap) }; }
-          }
-        }
-      }
-      segStart = i + 1;
+      var x = res[i];
+      if (x.art !== "normal" || x.teil || fest[x.dauerId] || fest[x.id] || !zaehlt(x)) { continue; }
+      var angekommen = (x.start - x.planStart) / MIN;
+      if (angekommen < 0.5) { continue; }
+      var k = typKlasse(x.a.typ);
+      var spaet = (x.ende - x.planEnde) / MIN;   /* so viel endet er noch zu spät */
+      var kap, noetig;
+      if (k === "puffer") { kap = x.dauer; noetig = spaet; }
+      else if (k === "pause" || k === "uebergang") { kap = x.dauer - Math.ceil(x.a.dauer / 2); noetig = spaet; }
+      else if (E.toleranz >= 0) { kap = x.dauer - Math.ceil(x.a.dauer / 2); noetig = spaet - tol; }
+      else { continue; }
+      var c = Math.min(kap, noetig);
+      if (c >= 0.5) { return { id: x.dauerId, min: c }; }
     }
     return null;
   }
@@ -1852,6 +1856,7 @@
     $("e-vorwarnung").value = String(E.vorwarnung);
     $("e-wach").checked = E.wach;
     $("e-puffer").checked = E.puffer;
+    $("e-toleranz").value = String(E.toleranz);
     zeigeWachStatus();
     zeigeAblaufInfo();
     var erst = ablauf.abschnitte[0];
@@ -2010,6 +2015,7 @@
     $("e-anhoeren").addEventListener("click", function () { entsperren(); spiele(E.klang); vibriere([200, 100, 200]); });
     $("e-vorwarnung").addEventListener("change", function () { E.vorwarnung = Number(this.value) || 0; speichereEinst(); });
     $("e-puffer").addEventListener("change", function () { E.puffer = this.checked; speichereEinst(); neuBerechnen(); letzterTick = jetzt(); tick(); });
+    $("e-toleranz").addEventListener("change", function () { E.toleranz = Number(this.value); speichereEinst(); neuBerechnen(); letzterTick = jetzt(); tick(); });
     $("e-wach").addEventListener("change", function () {
       E.wach = this.checked;
       speichereEinst();
